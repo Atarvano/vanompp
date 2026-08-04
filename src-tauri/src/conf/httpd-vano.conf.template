@@ -1,0 +1,47 @@
+# Vanompp Apache template - minimal working
+# Placeholders: {{ROOT}} = app root with forward slashes, {{APACHE_PORT}} = port
+# Generated at runtime by services/apache.rs render_conf
+
+ServerRoot "{{ROOT}}/bin/apache"
+Listen {{APACHE_PORT}}
+ServerName localhost:{{APACHE_PORT}}
+DocumentRoot "{{ROOT}}/www"
+DirectoryIndex index.php index.html
+
+# Minimal modules required for PHP + directory + alias + auth
+LoadModule dir_module modules/mod_dir.so
+LoadModule mime_module modules/mod_mime.so
+LoadModule authz_core_module modules/mod_authz_core.so
+LoadModule authz_host_module modules/mod_authz_host.so
+LoadModule alias_module modules/mod_alias.so
+LoadModule rewrite_module modules/mod_rewrite.so
+LoadModule php_module "{{ROOT}}/bin/php/php8apache2_4.dll"
+
+<Directory />
+    AllowOverride none
+    Require all denied
+</Directory>
+
+<Directory "{{ROOT}}/www">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>
+
+AddHandler application/x-httpd-php .php
+PHPIniDir "{{ROOT}}/bin/php"
+
+Alias /phpmyadmin "{{ROOT}}/bin/phpmyadmin"
+<Directory "{{ROOT}}/bin/phpmyadmin">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>
+
+ErrorLog "{{ROOT}}/bin/apache/logs/error.log"
+CustomLog "{{ROOT}}/bin/apache/logs/access.log" common
+PidFile "{{ROOT}}/bin/apache/logs/httpd.pid"
+LogLevel warn
+TypesConfig conf/mime.types
+ServerTokens Prod
+ServerSignature Off

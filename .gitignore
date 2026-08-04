@@ -16,6 +16,7 @@ build/
 
 # Tauri bundle + portable heavy bins
 src-tauri/resources/bin/
+!src-tauri/resources/bin/README.md
 bin/
 www/*
 !www/.gitkeep
@@ -25,10 +26,19 @@ www/*
 docs/
 .claude/
 RECOVERY.md
-GURU_SMK.txt
 .agents/
 skills-lock.json
 nul
+
+# But keep GURU_SMK.txt (V1 tutorial) and CLAUDE.md — force-added via git add -f if ignored
+!GURU_SMK.txt
+!CLAUDE.md
+
+# Heavy binaries / screenshots — never push
+*.zip
+*.png
+src-tauri/gen/
+screenshots/
 
 # Env & secrets
 .env

@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm *)",
+      "Bash(cargo *)",
+      "Bash(git *)",
+      "Bash(npx *)",
+      "Bash(pwsh *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(cat *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat D:/Vanompp/CLAUDE.md 2>/dev/null; ls D:/Vanompp/docs/superpowers/specs/ 2>/dev/null; ls D:/Vanompp/docs/superpowers/plans/ 2>/dev/null"
+          }
+        ]
+      }
+    ]
+  }
+}
