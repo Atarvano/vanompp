@@ -193,9 +193,51 @@ pub fn start_mysql(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u3
     }
 
     // After init, ensure tmp sibling required by my.ini template (tmpdir=.../bin/mysql/tmp)
-    let _ = std::fs::create_dir_all(mysql_root.join("tmp"));
+    let tmp_dir = mysql_root.join("tmp");
+    let _ = std::fs::create_dir_all(&tmp_dir);
     // also ensure data dir still exists (for log file)
     let _ = std::fs::create_dir_all(&data_dir);
+
+    // Windows: delete stale pid files that cause "ibdata1 must be writable" when previous crash left pid
+    let pid_file = data_dir.join("mysql.pid");
+    if pid_file.exists() {
+        // if stale pid not alive, remove; else try kill then remove
+        if let Ok(content) = std::fs::read_to_string(&pid_file) {
+            if let Ok(pid_num) = content.trim().parse::<u32>() {
+                if !is_pid_alive(pid_num) {
+                    let _ = std::fs::remove_file(&pid_file);
+                } else {
+                    // kill lingering mysqld that holds ibdata1 lock
+                    let _ = kill_pid(pid_num);
+                    std::thread::sleep(Duration::from_millis(800));
+                    let _ = std::fs::remove_file(&pid_file);
+                }
+            } else {
+                let _ = std::fs::remove_file(&pid_file);
+            }
+        } else {
+            let _ = std::fs::remove_file(&pid_file);
+        }
+    }
+    // also kill any orphan mysqld.exe that matches our data dir (best effort)
+    {
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_all();
+        for (pid, proc) in sys.processes() {
+            let name = proc.name().to_string().to_lowercase();
+            if name.contains("mysqld") {
+                let cmd_line = proc.cmd().join(" ").to_lowercase();
+                let data_str = data_dir.to_string_lossy().to_lowercase();
+                let cwd_match = proc
+                    .cwd()
+                    .map(|c| c.to_string_lossy().to_lowercase().contains(&data_str))
+                    .unwrap_or(false);
+                if cmd_line.contains(&data_str) || cwd_match {
+                    let _ = kill_pid(pid.as_u32());
+                }
+            }
+        }
+    }
 
     // error log path from template
     let error_log_path = data_dir.join("mysql_error.log");
@@ -233,12 +275,20 @@ pub fn start_mysql(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u3
         std::thread::sleep(Duration::from_millis(500));
 
         if !is_pid_alive(pid) {
-            let tail = read_tail(&error_log_path, 30);
+            let tail = read_tail(&error_log_path, 40);
             if let Ok(mut map) = state.childs.lock() {
                 map.remove("mysql");
             }
+            // Friendly hint for common writable lock error
+            let lower = tail.to_lowercase();
+            if lower.contains("ibdata1") && lower.contains("writable") {
+                return Err(format!(
+                    "MySQL gagal start 😅 ibdata1 must be writable — file dikunci mysqld lama/antivirus.\nCoba: 1) Tutup semua mysqld di Task Manager, 2) Klik [Repair MySQL] reset data, 3) Exclude folder Vanompp di antivirus.\nLog:\n{}",
+                    tail
+                ));
+            }
             if tail.is_empty() {
-                return Err("MySQL gagal start 😅 Cek mysql_error.log — mysqld keluar".to_string());
+                return Err("MySQL gagal start 😅 Cek mysql_error.log — mysqld keluar tanpa log".to_string());
             } else {
                 return Err(format!("MySQL gagal start 😅 Cek mysql_error.log:\n{}", tail));
             }
