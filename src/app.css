@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-zinc-950: #09090B;
+  --color-zinc-900: #18181B;
+  --color-zinc-800: #27272A;
+  --color-zinc-700: #3F3F46;
+  --color-zinc-600: #52525B;
+  --color-zinc-500: #71717A;
+  --color-zinc-400: #A1A1AA;
+  --color-zinc-300: #D4D4D8;
+  --color-zinc-100: #F4F4F5;
+  --color-volt: #E9FF70;
+  --font-sans: "Geist Sans", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --ease-vanompp: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #27272A transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272A;
+  border-radius: 9999px;
+}
+html {
+  background: #09090B;
+}
+body {
+  min-height: 100dvh;
+  background: #09090B;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: #E9FF70;
+  color: #000;
+}
