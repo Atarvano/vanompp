@@ -1,11 +1,10 @@
-# Vanompp - build/outputs ignored, but KEEP source code tracked
-
 # Rust build
 /target/
 **/*.rs.bk
 Cargo.lock
 src-tauri/target/
 src-tauri/Cargo.lock
+src-tauri/gen/
 
 # Node
 node_modules/
@@ -22,23 +21,26 @@ www/*
 !www/.gitkeep
 
 # Session-local working memory - NEVER push to GitHub (vibecoding traces)
-# Kept on disk for Claude session persistence, but ignored in repo
-docs/
 .claude/
+docs/
 RECOVERY.md
 .agents/
 skills-lock.json
-nul
+.superpowers/
+.serena/
+graphify-out/
+static-build/
 
-# But keep GURU_SMK.txt (V1 tutorial) and CLAUDE.md — force-added via git add -f if ignored
-!GURU_SMK.txt
-!CLAUDE.md
+# Local persona / guru — keep on disk, not in repo
+GURU_SMK.txt
 
-# Heavy binaries / screenshots — never push
+# Heavy binaries & screenshots
 *.zip
 *.png
-src-tauri/gen/
 screenshots/
+
+# Vite template garbage
+public/vite.svg
 
 # Env & secrets
 .env
@@ -57,10 +59,3 @@ desktop.ini
 .idea/
 *.swp
 *.swo
-
-# Graphify cache
-graphify-out/
-
-# Claude session local
-.superpowers/
-.serena/
