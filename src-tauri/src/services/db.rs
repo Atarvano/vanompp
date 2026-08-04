@@ -137,27 +137,51 @@ pub fn resolve_app_root_from_www(www_root: &Path) -> PathBuf {
     www_root.to_path_buf()
 }
 
-/// Check if db folder exists on filesystem.
+/// Check if db folder exists on filesystem — scans multiple candidate data dirs.
 pub fn check_db_exists_fs(www_root: &Path, db_name: &str) -> bool {
     if db_name.trim().is_empty() {
         return false;
     }
     let app_root = resolve_app_root_from_www(www_root);
-    if let Some(data_dir) = resolve_mysql_data_dir(&app_root) {
-        let db_dir = data_dir.join(db_name.trim());
-        return db_dir.exists() && db_dir.is_dir();
-    }
-    false
+    check_db_exists_by_app_root(&app_root, db_name)
 }
 
 /// Alternative: check via app_root directly (used by commands).
+/// Walks ancestors to find any bin/mysql/data/{db} folder.
 pub fn check_db_exists_by_app_root(app_root: &Path, db_name: &str) -> bool {
-    if db_name.trim().is_empty() {
+    let trimmed = db_name.trim();
+    if trimmed.is_empty() {
         return false;
     }
-    if let Some(data_dir) = resolve_mysql_data_dir(app_root) {
-        let db_dir = data_dir.join(db_name.trim());
-        return db_dir.exists() && db_dir.is_dir();
+    // collect all data dir candidates up the ancestor chain
+    let candidates = [
+        app_root.join("bin").join("mysql").join("data"),
+        app_root.join("resources").join("bin").join("mysql").join("data"),
+        app_root
+            .join("src-tauri")
+            .join("resources")
+            .join("bin")
+            .join("mysql")
+            .join("data"),
+    ];
+    for p in &candidates {
+        let db_dir = p.join(trimmed);
+        if db_dir.exists() && db_dir.is_dir() {
+            return true;
+        }
+    }
+    // walk ancestors like resolve does
+    let mut cur = app_root.to_path_buf();
+    for _ in 0..6 {
+        for suffix in ["bin/mysql/data", "resources/bin/mysql/data"] {
+            let db_dir = cur.join(suffix).join(trimmed);
+            if db_dir.exists() && db_dir.is_dir() {
+                return true;
+            }
+        }
+        if !cur.pop() {
+            break;
+        }
     }
     false
 }

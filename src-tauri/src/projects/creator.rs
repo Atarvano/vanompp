@@ -8,7 +8,7 @@ const INDEX_TEMPLATE: &str = r#"<!doctype html>
 <html><head><meta charset="utf-8"><title>{SLUG}</title></head>
 <body>
 <h1>{SLUG} jalan!</h1>
-<p>Url kamu: http://localhost:8080/{SLUG}</p>
+<p>Url kamu: http://localhost:{PORT}/{SLUG}</p>
 <?php include 'conn.php'; if(isset($conn) && $conn){ echo "<p style='color:green'>DB Connected ke {DB}</p>"; } else { echo "<p>DB belum konek / gak pake DB - cek conn.php</p>"; } ?>
 </body></html>"#;
 
@@ -82,6 +82,7 @@ pub fn create_project_fs(
 
     let index_content = INDEX_TEMPLATE
         .replace("{SLUG}", &slug)
+        .replace("{PORT}", &apache_port.to_string())
         .replace("{DB}", &db_final);
 
     let conn_content = if create_db {

@@ -17,7 +17,8 @@
         "height": 720,
         "minWidth": 760,
         "minHeight": 560,
-        "center": true
+        "center": true,
+        "label": "main"
       }
     ],
     "security": {
@@ -26,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi", "nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -34,6 +35,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["resources/bin", "../www/__vano_health"]
+    "resources": ["resources/bin", "../www/__vano_health"],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      }
+    }
   }
 }

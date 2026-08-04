@@ -1,16 +1,4 @@
-export function slugifyInput(input: string): string {
-  let s = input.toLowerCase().trim()
-  s = s.replace(/[\s_]+/g, '-')
-  s = s.replace(/[^a-z0-9-]/g, '')
-  s = s.replace(/--+/g, '-')
-  s = s.replace(/^-+/, '').replace(/-+$/, '')
-  return s.slice(0,32)
-}
-
-/**
- * Live preview version that mirrors Rust slugify but without Result.
- * For UI preview while typing: trim, lowercase, [\s_]+ -> '-', [^a-z0-9-] -> '-', --+ -> '-', ^-+|-+$ -> '', slice 0,32
- */
+/** Live preview — mirrors Rust slugify. Also aliased as slugifyInput for compat */
 export function previewSlug(input: string): string {
   return input
     .trim()
@@ -21,6 +9,7 @@ export function previewSlug(input: string): string {
     .replace(/^-+|-+$/g, '')
     .slice(0, 32)
 }
+export const slugifyInput = previewSlug
 
 export function validateSlug(slug: string): string | null {
   if (!slug) return "Nama project ga boleh kosong"

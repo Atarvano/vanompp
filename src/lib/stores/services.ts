@@ -219,20 +219,22 @@ export async function stopAllServices(): Promise<string[]> {
   }
 }
 
-// helper: detect conflict from PortInfo[] — now respects custom ports via store/index
-export function toConflicts(portInfos: PortInfo[]): ConflictInfo[] {
+// helper: detect conflict from PortInfo[] — index-aware: 0=apache,1=mysql.
+// Pure fallback when called outside Svelte context; optionally reads cur ports safely.
+export function toConflicts(portInfos: PortInfo[], curPorts?: { apachePort?: number; mysqlPort?: number }): ConflictInfo[] {
   const out: ConflictInfo[] = []
-  const cur = (() => { try { return get(services) } catch { return null } })()
+  // try get store only in browser, fallback to passed curPorts
+  const cur = curPorts ?? (() => { try { return get(services) as any } catch { return null } })()
   for (let i = 0; i < portInfos.length; i++) {
     const pi = portInfos[i]
     if (pi.free) continue
-    // index 0=apache, 1=mysql when check_ports called with [ap, mp]
-    // fallback: exact 3306 or matching cur.mysqlPort => mysql
-    let name: 'apache' | 'mysql' = 'apache'
-    if (i === 1) name = 'mysql'
-    else if (pi.port === 3306) name = 'mysql'
-    else if (cur && pi.port === cur.mysqlPort) name = 'mysql'
-    else if (i === 0) name = 'apache'
+    let name: 'apache' | 'mysql' = i === 1 ? 'mysql' : 'apache'
+    if (cur) {
+      if (pi.port === cur.mysqlPort) name = 'mysql'
+      else if (pi.port === cur.apachePort) name = 'apache'
+    }
+    // legacy exact fallback
+    if (pi.port === 3306) name = 'mysql'
     out.push({ name, port: pi.port, suggest: pi.suggest })
   }
   return out

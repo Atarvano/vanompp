@@ -26,7 +26,6 @@
   $: svc = $services
   $: ld = $loading
   $: err = $lastError
-
   $: allRunning = svc.apache && svc.mysql
   $: anyRunning = svc.apache || svc.mysql
 
