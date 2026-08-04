@@ -30,29 +30,41 @@ fn ensure_dirs(root: &PathBuf) -> Result<(), String> {
 }
 
 pub fn render_conf(root: &PathBuf, apache_port: u16) -> Result<PathBuf, String> {
-    let fwd = root_forward(root);
+    // Resolve real bin first to compute correct ROOT for template (dev vs portable)
+    let apache_exe = resolve_apache_bin(root).ok();
+
+    let (apache_root_for_fwd, bin_root_for_fwd): (Option<PathBuf>, Option<PathBuf>) = if let Some(exe) = apache_exe.as_ref() {
+        let bin_dir = exe.parent().unwrap_or(exe.as_path()).to_path_buf();
+        let apache_root = bin_dir.parent().unwrap_or(bin_dir.as_path()).to_path_buf();
+        let bin_root = apache_root.parent().unwrap_or(apache_root.as_path()).to_path_buf();
+        (Some(apache_root), Some(bin_root))
+    } else {
+        (None, None)
+    };
+
+    // ROOT for template = bin_root's parent's parent? Actually template uses {{ROOT}}/bin/apache etc.
+    // So if bin_root = .../bin (parent of apache/php), ROOT = bin_root's parent.
+    // If bin_root = .../resources/bin, ROOT = .../resources
+    let fwd = if let Some(br) = bin_root_for_fwd.as_ref() {
+        let root_for_template = br.parent().unwrap_or(br.as_path()).to_path_buf();
+        root_forward(&root_for_template)
+    } else {
+        root_forward(root)
+    };
+
     let rendered = render_httpd(&fwd, apache_port);
     let php_rendered = render_phpini(&fwd);
 
     // Resolve real bin dirs (might be resources/bin layout)
-    // Try to find actual apache conf directory — prefer resolved location if exists
     let apache_conf_dir_primary = root.join("bin").join("apache").join("conf");
     let php_dir_primary = root.join("bin").join("php");
 
-    // Discover actual base bin root:
-    // If primary exists, use it; else try to locate via resolve_bin using httpd.exe location
-    let apache_exe = resolve_apache_bin(root).ok();
     let (apache_conf_path, php_ini_path, apache_logs_dir, php_tmp, php_logs): (PathBuf, PathBuf, PathBuf, PathBuf, PathBuf) =
         if let Some(exe_path) = apache_exe.as_ref() {
-            // exe_path = .../bin/apache/bin/httpd.exe -> apache root = .../bin/apache
-            let bin_dir = exe_path
-                .parent()
-                .unwrap_or(exe_path.as_path())
-                .to_path_buf();
+            let bin_dir = exe_path.parent().unwrap_or(exe_path.as_path()).to_path_buf();
             let apache_root = bin_dir.parent().unwrap_or(bin_dir.as_path()).to_path_buf();
             let conf_dir = apache_root.join("conf");
             let logs_dir = apache_root.join("logs");
-            // php is sibling of apache root's parent: .../bin/php
             let bin_root = apache_root.parent().unwrap_or(apache_root.as_path()).to_path_buf();
             let php_dir = bin_root.join("php");
             (
@@ -63,7 +75,6 @@ pub fn render_conf(root: &PathBuf, apache_port: u16) -> Result<PathBuf, String> 
                 php_dir.join("logs"),
             )
         } else {
-            // Fallback primary paths
             (
                 apache_conf_dir_primary.join("httpd-vano.conf"),
                 php_dir_primary.join("php.ini"),

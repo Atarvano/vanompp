@@ -9,10 +9,9 @@ max_connections=50
 # MySQL 8.0.40+: default_authentication_plugin deprecated, use authentication_policy
 # Keep native for SMK compat (conn.php mysqli w/o caching_sha2), but use new syntax.
 authentication_policy=mysql_native_password
-# compat fallback for older client expecting native
-# secure_file_priv must exist but we point to data to allow LOAD INFILE local-ish
-secure-file-priv="{{ROOT}}/bin/mysql/data"
-tmpdir="{{ROOT}}/bin/mysql/data/tmp"
+# secure_file_priv points to tmp sibling (not data!) to keep data clean for --initialize
+secure-file-priv="{{ROOT}}/bin/mysql/tmp"
+tmpdir="{{ROOT}}/bin/mysql/tmp"
 log-error="{{ROOT}}/bin/mysql/data/mysql_error.log"
 pid-file="{{ROOT}}/bin/mysql/data/mysql.pid"
 # SMK safe defaults low mem 64M for lab

@@ -13,27 +13,39 @@ fn ensure_mysql_dirs(data_dir: &PathBuf, logs_tmp: &PathBuf) -> Result<(), Strin
 
 /// Render my.ini to appropriate location, init data dir if needed
 pub fn render_myini_file(root: &PathBuf, mysql_port: u16) -> Result<PathBuf, String> {
-    let fwd = root_forward(root);
+    // Resolve actual mysql bin location first, so ROOT in template can be
+    // derived from the real location (fixes dev path .../target/debug/resources/bin/mysql
+    // vs prod C:/Vanompp/bin/mysql — previously always used D:/Vanompp which broke secure-file-priv).
+    let mysqld_path_opt = resolve_mysql_bin(root).ok();
+
+    // tmp dir must NOT be inside data/ — otherwise mysqld --initialize fails (data must be empty)
+    // and runtime init error "Cant get stat of data/tmp" when my.ini points inside data but folder missing.
+    let (my_ini_path, data_dir, tmp_dir, fwd): (PathBuf, PathBuf, PathBuf, String) =
+        if let Some(exe_path) = mysqld_path_opt.as_ref() {
+            let bin_dir = exe_path.parent().unwrap().to_path_buf();
+            let mysql_root = bin_dir.parent().unwrap().to_path_buf(); // .../bin/mysql
+            let data = mysql_root.join("data");
+            let tmp = mysql_root.join("tmp"); // sibling, not data/tmp!
+            let ini = mysql_root.join("my.ini");
+            let root_for_template = mysql_root
+                .parent()
+                .and_then(|p| p.parent())
+                .unwrap_or(&mysql_root)
+                .to_path_buf();
+            let f = root_forward(&root_for_template);
+            (ini, data, tmp, f)
+        } else {
+            let mysql_root = root.join("bin").join("mysql");
+            let f = root_forward(root);
+            (
+                mysql_root.join("my.ini"),
+                mysql_root.join("data"),
+                mysql_root.join("tmp"),
+                f,
+            )
+        };
+
     let rendered = render_myini(&fwd, mysql_port);
-
-    // Resolve actual mysql bin location
-    let mysqld_path = resolve_mysql_bin(root).ok();
-
-    let (my_ini_path, data_dir, tmp_dir): (PathBuf, PathBuf, PathBuf) = if let Some(exe_path) = mysqld_path.as_ref() {
-        let bin_dir = exe_path.parent().unwrap().to_path_buf();
-        let mysql_root = bin_dir.parent().unwrap().to_path_buf(); // .../bin/mysql
-        let data = mysql_root.join("data");
-        let tmp = data.join("tmp");
-        let ini = mysql_root.join("my.ini");
-        (ini, data, tmp)
-    } else {
-        let mysql_root = root.join("bin").join("mysql");
-        (
-            mysql_root.join("my.ini"),
-            mysql_root.join("data"),
-            mysql_root.join("data").join("tmp"),
-        )
-    };
 
     // Only ensure data dir exists (no tmp yet!) — tmp inside data makes
     // mysqld --initialize-insecure fail with "data directory has files"
@@ -108,8 +120,9 @@ fn run_initialize_insecure(mysqld_path: &PathBuf, data_dir: &PathBuf, mysql_root
         ));
     }
 
-    // Ensure dirs
+    // Ensure data empty + ensure tmp sibling exists BEFORE init (my.ini tmpdir points to it)
     let _ = std::fs::create_dir_all(data_dir);
+    let _ = std::fs::create_dir_all(mysql_root.join("tmp"));
 
     #[allow(unused_mut)]
     let mut cmd = std::process::Command::new(mysqld_path);
@@ -172,15 +185,17 @@ pub fn start_mysql(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u3
         .to_path_buf();
     let data_dir = mysql_root.join("data");
 
-    // Initialize if empty
+    // Initialize if empty (needs tmp sibling existing — handled inside run_initialize)
     if !is_data_initialized(&data_dir) {
         if let Err(e) = run_initialize_insecure(&mysqld_path, &data_dir, &mysql_root) {
             return Err(e);
         }
     }
 
-    // After init, ensure tmp dir required by my.ini template (tmpdir=.../data/tmp)
-    let _ = std::fs::create_dir_all(data_dir.join("tmp"));
+    // After init, ensure tmp sibling required by my.ini template (tmpdir=.../bin/mysql/tmp)
+    let _ = std::fs::create_dir_all(mysql_root.join("tmp"));
+    // also ensure data dir still exists (for log file)
+    let _ = std::fs::create_dir_all(&data_dir);
 
     // error log path from template
     let error_log_path = data_dir.join("mysql_error.log");
