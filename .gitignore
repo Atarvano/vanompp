@@ -1,0 +1,52 @@
+# Vanompp - build/outputs ignored, but KEEP source code tracked
+
+# Rust build
+/target/
+**/*.rs.bk
+Cargo.lock
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# Node
+node_modules/
+dist/
+build/
+.svelte-kit/
+*.tsbuildinfo
+
+# Tauri bundle + portable heavy bins
+src-tauri/resources/bin/
+bin/
+www/*
+!www/.gitkeep
+
+# Session-local working memory - NEVER push to GitHub (vibecoding traces)
+# Kept on disk for Claude session persistence, but ignored in repo
+docs/
+.claude/
+RECOVERY.md
+GURU_SMK.txt
+.agents/
+skills-lock.json
+nul
+
+# Env & secrets
+.env
+.env.local
+*.log
+*.pid
+*.sock
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Graphify cache
+graphify-out/
