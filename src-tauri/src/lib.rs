@@ -32,7 +32,8 @@ pub fn run() {
             commands::services::start_all_services,
             commands::services::stop_all_services,
             commands::db::create_database,
-            commands::db::create_db
+            commands::db::create_db,
+            commands::logs::read_log
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

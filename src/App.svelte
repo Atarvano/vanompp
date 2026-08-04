@@ -8,8 +8,10 @@
   import EmptyState from './lib/components/EmptyState.svelte'
   import Toast from './lib/components/Toast.svelte'
   import PortConflictModal from './lib/components/PortConflictModal.svelte'
+  import LogViewer from './lib/components/LogViewer.svelte'
   import { projects, refreshProjects } from './lib/stores/projects'
   import { services, refreshStatus, startService, type ConflictInfo } from './lib/stores/services'
+  import { MSG } from './lib/utils/messages'
 
   type ToastItem = { id: number; msg: string; kind?: 'info' | 'error' }
   let toasts: ToastItem[] = []
@@ -20,6 +22,10 @@
   let modalConflicts: ConflictInfo[] = []
   let modalError = ''
 
+  // LogViewer state
+  let logOpen = false
+  let logService: 'apache' | 'mysql' | 'php' | null = null
+
   // polling
   let pollTimer: ReturnType<typeof setInterval> | null = null
   const POLL_MS = 3000
@@ -29,13 +35,8 @@
   $: apachePort = $services.apachePort
 
   onMount(async () => {
-    // initial load: status + projects in parallel
     await Promise.all([refreshStatus(), refreshProjects()])
-
-    // polling every 3s for real status
-    pollTimer = setInterval(() => {
-      refreshStatus()
-    }, POLL_MS)
+    pollTimer = setInterval(() => { refreshStatus() }, POLL_MS)
   })
 
   onDestroy(() => {
@@ -45,9 +46,8 @@
   function addToast(msg: string, kind: 'info' | 'error' = 'info') {
     const id = nextToastId++
     toasts = [...toasts, { id, msg, kind } as any]
-    setTimeout(() => {
-      toasts = toasts.filter((t) => t.id !== id)
-    }, 4500)
+    // Toast component auto-dismiss also, but keep fallback
+    setTimeout(() => { toasts = toasts.filter((t) => t.id !== id) }, 5500)
   }
 
   function handleCreated(e: CustomEvent) {
@@ -56,9 +56,7 @@
     if (warn) {
       addToast(warn, 'error')
     } else {
-      addToast(
-        `Project "${name}" dibuat! URL: http://localhost:${port}/${name}${db ? ` + DB ${db}` : ''}`
-      )
+      addToast(MSG.created(name, port, db))
     }
     refreshProjects(port)
   }
@@ -91,10 +89,14 @@
     addToast(msg, 'info')
   }
 
+  function handleOpenLogViewer(e: CustomEvent) {
+    const { service } = e.detail as { service: 'apache' | 'mysql' | 'php' }
+    logService = service ?? 'apache'
+    logOpen = true
+  }
+
   async function handleUseSuggest(e: CustomEvent) {
     const c = e.detail as ConflictInfo
-    const prev = get(services)
-    // update port in store first, then retry start
     if (c.name === 'apache') {
       services.update((s) => ({ ...s, apachePort: c.suggest }))
     } else {
@@ -106,7 +108,6 @@
     try {
       await startService(c.name, c.suggest)
       addToast(`${c.name.toUpperCase()} nyala di port ${c.suggest} 🎉`)
-      // refresh projects URL if apache port changed
       if (c.name === 'apache') {
         await refreshProjects(c.suggest)
       }
@@ -119,28 +120,20 @@
     }
   }
 
-  function handleModalClose() {
-    modalOpen = false
-  }
+  function handleModalClose() { modalOpen = false }
 
   async function handleOpenLog() {
-    // Try open error.log via backend or just toast info
-    // For now, opener plugin can't open arbitrary file path easily without knowing location
-    // Best effort: show toast with hint; user can open manually from C:\Vanompp\...
-    addToast(
-      'Cek file: bin/apache/logs/error.log & bin/mysql/data/mysql_error.log — buka manual di Explorer ya',
-      'info'
-    )
+    // Open LogViewer for apache by default when conflict modal asks for logs
+    logService = modalConflicts[0]?.name ?? 'apache'
+    logOpen = true
     modalOpen = false
   }
 
-  // Keep projects in sync when apache port changes (after conflict resolution)
   let lastApachePort = 8080
   $: {
     const curPort = $services.apachePort
     if (curPort !== lastApachePort) {
       lastApachePort = curPort
-      // fire-and-forget refresh
       refreshProjects(curPort)
     }
   }
@@ -149,11 +142,17 @@
 <div class="min-h-[100dvh] bg-zinc-950 text-zinc-100 px-4 md:px-8 py-8 selection:bg-volt selection:text-black">
   <header class="max-w-[880px] mx-auto flex justify-between items-center mb-10">
     <BrandWordmark />
-    <span class="font-mono text-[10px] tracking-[0.08em] uppercase text-zinc-500">v0.1.0 • Windows portable</span>
+    <div class="flex items-center gap-3">
+      <span class="font-mono text-[10px] tracking-[0.08em] uppercase text-zinc-500">v0.1.0 • Windows portable</span>
+      <button
+        on:click={()=>{ logService='apache'; logOpen=true }}
+        class="rounded-full bg-white/[0.06] ring-1 ring-white/10 px-3 py-1.5 text-[11px] font-mono text-zinc-400 hover:text-white hover:bg-white/[0.10] transition-all"
+      >Logs</button>
+    </div>
   </header>
 
   <main class="max-w-[880px] mx-auto flex flex-col gap-6">
-    <ServiceCard on:conflict={handleServiceConflict} on:error={handleServiceError} on:toast={handleServiceToast} />
+    <ServiceCard on:conflict={handleServiceConflict} on:error={handleServiceError} on:toast={handleServiceToast} on:openLogs={handleOpenLogViewer} />
 
     {#if isEmpty}
       <EmptyState on:cta={handleEmptyCta} />
@@ -174,10 +173,10 @@
     on:useSuggest={handleUseSuggest}
     on:openLog={handleOpenLog}
   />
+
+  <LogViewer open={logOpen} service={logService} on:close={()=>logOpen=false} on:toast={handleProjectToast} />
 </div>
 
 <style>
-  :global(html) {
-    background: #09090b;
-  }
+  :global(html) { background: #09090b; }
 </style>

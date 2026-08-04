@@ -5,6 +5,7 @@
   import { previewSlug, validateSlug } from '$lib/utils/slug'
   import { refreshProjects, selected as selectedStore } from '$lib/stores/projects'
   import { projects as projectsStore } from '$lib/stores/projects'
+  import { MSG } from '$lib/utils/messages'
 
   const dispatch = createEventDispatcher()
 
@@ -20,7 +21,7 @@
   $: dbFinalSanitized = dbFinal.replace(/-/g, '_').toLowerCase()
   $: validationError = (() => {
     if (!name.trim()) return null
-    if (!slug) return 'Nama project ga boleh kosong'
+    if (!slug) return MSG.slugEmpty
     return validateSlug(slug)
   })()
   $: error = errorMsg || validationError
@@ -40,20 +41,17 @@
         dbName: dbChecked ? dbFinal : ''
       } as any)
       await refreshProjects()
-      // check if db was requested but not created (db_exists false)
       const createdName = result.name as string
-      // Look up from store after refresh would be async; just read result fields if present
       const resultHasDb = result.db_exists ?? result.dbExists
       if (dbChecked && resultHasDb === false) {
-        warnMsg = `Project "${createdName}" dibuat tapi DB belum — Start MySQL dulu lalu klik [Create DB] di card.`
+        warnMsg = MSG.mysqlOff
       }
-      // Also inspect global store for this project to surface toast
       let currentList: any[] = []
       const unsub = projectsStore.subscribe((v) => (currentList = v))
       unsub()
       const found = currentList.find((p) => p.name === createdName)
       if (dbChecked && found && !found.db_exists) {
-        warnMsg = `Project "${createdName}" dibuat tapi DB "${dbFinalSanitized}" belum — MySQL mungkin OFF. Start MySQL dulu lalu klik [Create DB] di card.`
+        warnMsg = `${MSG.mysqlOff} — DB "${dbFinalSanitized}" belum kekonek, coba Start MySQL dulu.`
       }
 
       selectedStore.set(createdName)
@@ -61,13 +59,12 @@
       name = ''
       dbName = ''
     } catch (e) {
-      const msg = typeof e === 'string' ? e : (e as any)?.toString() || 'Gagal bikin project'
+      const msg = typeof e === 'string' ? e : (e as any)?.toString() || MSG.unexpectedError
       if (msg.toLowerCase().includes('sudah ada') || msg.toLowerCase().includes('already exists') || msg.toLowerCase().includes('duplicate') || msg.includes('Folder')) {
-        errorMsg = `Folder "${slug}" udah ada. Coba nama lain atau buka yang ada.`
+        errorMsg = MSG.folderExistsSuggest(slug)
       } else if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('ga boleh')) {
         errorMsg = msg
       } else if (msg.includes('MySQL belum ON')) {
-        // MySQL OFF case — project files already created (creator swallows error), but if we ever return Err here, handle
         await refreshProjects()
         selectedStore.set(slug)
         warnMsg = `Project "${slug}" dibuat tapi ${msg}`
@@ -103,7 +100,7 @@
         {#if slug}
           <span class="text-zinc-500">slug →</span><code class="bg-white/[0.06] px-2 py-0.5 rounded-full text-volt">{slug}</code>
         {:else}
-          <span class="text-zinc-600">ketik nama dulu</span>
+          <span class="text-zinc-600">ketik nama dulu — {MSG.invalidSlug}</span>
         {/if}
         {#if error}
           <span class="text-red-400 ml-1">{error}</span>

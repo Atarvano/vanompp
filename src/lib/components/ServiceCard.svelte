@@ -14,11 +14,13 @@
     toConflicts,
     type ConflictInfo
   } from '$lib/stores/services'
+  import { MSG } from '$lib/utils/messages'
 
   const dispatch = createEventDispatcher<{
     conflict: { conflicts: ConflictInfo[]; error?: string }
     error: { msg: string }
     toast: { msg: string }
+    openLogs: { service: 'apache' | 'mysql' | 'php' }
   }>()
 
   $: svc = $services
@@ -30,7 +32,6 @@
 
   async function toggle(name: 'apache' | 'mysql') {
     if (ld[name] || ld.all) return
-    // If running -> stop
     if (svc[name]) {
       try {
         const msg = await stopService(name)
@@ -42,21 +43,19 @@
       return
     }
 
-    // Not running -> check port
     try {
       const infos = await checkPorts()
       const relevantPort = name === 'apache' ? svc.apachePort : svc.mysqlPort
       const pi = infos.find((p) => p.port === relevantPort)
       if (pi && !pi.free) {
-        // conflict pre-check
         dispatch('conflict', {
           conflicts: [{ name, port: pi.port, suggest: pi.suggest }],
-          error: `Port ${pi.port} udah dipakai 😅`
+          error: name === 'apache' ? MSG.apachePortConflict(pi.port, pi.suggest) : MSG.mysqlPortConflict(pi.port, pi.suggest)
         })
         return
       }
     } catch {
-      // ignore port check failure, proceed to start
+      // ignore
     }
 
     try {
@@ -65,7 +64,6 @@
       dispatch('toast', { msg: `${name.toUpperCase()} nyala — ${msg}` })
     } catch (e) {
       const msg = typeof e === 'string' ? e : String(e)
-      // if port error -> show conflict modal with fresh port info
       const lower = msg.toLowerCase()
       if (
         lower.includes('port') ||
@@ -82,9 +80,7 @@
             dispatch('conflict', { conflicts, error: msg })
             return
           }
-        } catch {
-          // fallthrough to error
-        }
+        } catch {}
       }
       dispatch('error', { msg })
     }
@@ -92,7 +88,6 @@
 
   async function handleStartAll() {
     if (ld.all || ld.apache || ld.mysql) return
-    // pre-check conflicts for not-yet-running services
     try {
       const infos = await checkPorts()
       const conflicts = toConflicts(infos).filter((c) => {
@@ -101,12 +96,10 @@
         return true
       })
       if (conflicts.length) {
-        dispatch('conflict', { conflicts, error: `Port kepake — cek ${conflicts.map(c=>c.port).join(', ')}` })
+        dispatch('conflict', { conflicts, error: MSG.portKepake(conflicts.map(c=>c.port)) })
         return
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
 
     try {
       const msgs = await startAllServices()
@@ -122,9 +115,7 @@
             dispatch('conflict', { conflicts, error: msg })
             return
           }
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
       dispatch('error', { msg })
     }
@@ -156,7 +147,6 @@
       </h2>
 
       <div class="flex gap-2.5 flex-wrap">
-        <!-- Apache -->
         <button
           on:click={() => toggle('apache')}
           disabled={ld.apache || ld.all}
@@ -173,7 +163,6 @@
           <span class="ml-0.5 text-[10px] {svc.apache ? 'text-volt' : 'text-zinc-600'} font-bold">{svc.apache ? 'ON' : 'OFF'}</span>
         </button>
 
-        <!-- MySQL -->
         <button
           on:click={() => toggle('mysql')}
           disabled={ld.mysql || ld.all}
@@ -189,6 +178,11 @@
           <span class="{svc.mysql ? 'text-volt' : 'text-zinc-300'}">MySQL</span>
           <span class="ml-0.5 text-[10px] {svc.mysql ? 'text-volt' : 'text-zinc-600'} font-bold">{svc.mysql ? 'ON' : 'OFF'}</span>
         </button>
+
+        <button
+          on:click={()=>dispatch('openLogs',{service:'apache'})}
+          class="rounded-full bg-white/[0.04] ring-1 ring-white/10 px-3 py-1.5 text-[11px] font-mono text-zinc-500 hover:text-zinc-300 hover:ring-white/20 active:scale-[0.98] transition-all"
+        >Logs</button>
       </div>
 
       <div class="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-mono text-zinc-600">
@@ -206,6 +200,13 @@
 
       {#if err}
         <p class="mt-2 text-[11px] font-mono text-red-400 bg-red-500/10 ring-1 ring-red-500/20 rounded-[0.6rem] px-2.5 py-1.5 leading-snug break-words">{err}</p>
+      {/if}
+
+      {#if err && err.toLowerCase().includes('vc++')}
+        <div class="mt-2 flex gap-2">
+          <button on:click={()=>dispatch('openLogs',{service:'apache'})} class="rounded-full bg-red-500/15 ring-1 ring-red-500/20 px-3 py-1 text-[11px] font-mono text-red-300 hover:bg-red-500/20">Buka Logs</button>
+          <span class="text-[10px] font-mono text-zinc-500 py-1">{MSG.vcRedistTip}</span>
+        </div>
       {/if}
     </div>
 
