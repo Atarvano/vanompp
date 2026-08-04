@@ -10,7 +10,7 @@ pub fn render_conf(root: &PathBuf, apache_port: u16, mysql_port: u16) -> Result<
     let apache_exe = resolve_apache_bin(root).ok();
 
     // ponytail: reuse layout_from_exe instead of manual parent chain dupe
-    let (apache_root_for_fwd, bin_root_for_fwd): (Option<PathBuf>, Option<PathBuf>) = if let Some(exe) = apache_exe.as_ref() {
+    let (_apache_root_for_fwd, bin_root_for_fwd): (Option<PathBuf>, Option<PathBuf>) = if let Some(exe) = apache_exe.as_ref() {
         let (svc_root, bin_root, _app_root) = crate::services::layout_from_exe(exe.as_path());
         (Some(svc_root), Some(bin_root))
     } else {

@@ -11,15 +11,6 @@ fn resolve_mysql_client_bin(app_root: &Path) -> Option<PathBuf> {
 }
 
 /// ponytail: dupe of resolve_bin but for data dir (needs is_dir check)
-fn resolve_mysql_data_dir(app_root: &Path) -> Option<PathBuf> {
-    if let Some(b) = resolve_bin(&app_root.to_path_buf(), "mysql/data") {
-        if b.is_dir() {
-            return Some(b);
-        }
-    }
-    let fb = app_root.join("bin").join("mysql").join("data");
-    if fb.is_dir() { Some(fb) } else { None }
-}
 
 /// Resolve app root from www path similar to previous logic.
 pub fn resolve_app_root_from_www(www_root: &Path) -> PathBuf {

@@ -5,11 +5,6 @@ use crate::conf::{render_myini, root_forward};
 use crate::services::{is_pid_alive, kill_pid, read_tail, resolve_mysql_bin, ServiceState};
 use crate::utils::port::{is_port_free, is_port_occupied_tcp, suggest_next_free};
 
-fn ensure_mysql_dirs(data_dir: &PathBuf, logs_tmp: &PathBuf) -> Result<(), String> {
-    std::fs::create_dir_all(data_dir).map_err(|e| format!("Gagal bikin data dir mysql: {}", e))?;
-    std::fs::create_dir_all(logs_tmp).map_err(|e| format!("Gagal bikin tmp mysql: {}", e))?;
-    Ok(())
-}
 
 /// Render my.ini to appropriate location, init data dir if needed
 pub fn render_myini_file(root: &PathBuf, mysql_port: u16) -> Result<PathBuf, String> {
@@ -21,7 +16,7 @@ pub fn render_myini_file(root: &PathBuf, mysql_port: u16) -> Result<PathBuf, Str
     // tmp dir must NOT be inside data/ — otherwise mysqld --initialize fails (data must be empty)
     // and runtime init error "Cant get stat of data/tmp" when my.ini points inside data but folder missing.
     // ponytail: reuse layout_from_exe — single source of truth for root derivation
-    let (my_ini_path, data_dir, tmp_dir, fwd): (PathBuf, PathBuf, PathBuf, String) =
+    let (my_ini_path, data_dir, _tmp_dir, fwd): (PathBuf, PathBuf, PathBuf, String) =
         if let Some(exe_path) = mysqld_path_opt.as_ref() {
             let (mysql_root, _bin_root, app_root) =
                 crate::services::layout_from_exe(exe_path.as_path());
