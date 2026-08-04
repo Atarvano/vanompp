@@ -1,7 +1,6 @@
 ﻿<script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import { get } from 'svelte/store'
-  import BrandWordmark from './lib/components/BrandWordmark.svelte'
   import ServiceCard from './lib/components/ServiceCard.svelte'
   import ProjectCard from './lib/components/ProjectCard.svelte'
   import CreateCard from './lib/components/CreateCard.svelte'
@@ -125,7 +124,13 @@
 
 <div class="min-h-[100dvh] bg-zinc-950 text-zinc-100 px-4 md:px-8 py-8 selection:bg-volt selection:text-black">
   <header class="max-w-[880px] mx-auto flex justify-between items-center mb-10">
-    <BrandWordmark />
+<div class="flex items-center gap-2.5">
+  <div class="w-8 h-8 rounded-[0.65rem] bg-zinc-900 ring-1 ring-white/10 flex items-center justify-center relative">
+    <span class="font-mono font-bold text-[13px] tracking-tight text-white">V/</span>
+    <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-volt rounded-full ring-2 ring-zinc-900"></span>
+  </div>
+  <span class="font-sans text-[15px] font-bold tracking-[-0.02em] text-white lowercase">vanompp</span>
+</div>
     <div class="flex items-center gap-3">
       <span class="font-mono text-[10px] tracking-[0.08em] uppercase text-zinc-500">v0.1.0 • Windows portable</span>
       <button
