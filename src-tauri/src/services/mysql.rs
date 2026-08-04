@@ -321,6 +321,49 @@ pub fn start_mysql(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u3
         }
     }
 
+    // Bootstrap grants: MySQL 8 --initialize-insecure only creates root@localhost.
+    // SMK conn.php + db.rs use 127.0.0.1 -> need root@127.0.0.1 and root@%.
+    // Best-effort, don't fail start if this fails (e.g. first run still initializing).
+    {
+        // client bin is sibling of mysqld
+        let client_bin = root
+            .join("bin")
+            .join("mysql")
+            .join("bin")
+            .join("mysql.exe");
+        let client_bin = if client_bin.exists() {
+            Some(client_bin)
+        } else {
+            // fallback via mysqld_path sibling
+            match resolve_mysql_bin(&root) {
+                Ok(p) => Some(p.parent().unwrap().join("mysql.exe")),
+                Err(_) => None,
+            }
+        };
+        if let Some(client_bin) = client_bin {
+            for attempt in 0..3 {
+                std::thread::sleep(Duration::from_millis(400 + attempt as u64 * 300));
+                let sql = "CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY ''; GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION; CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED WITH mysql_native_password BY ''; GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;";
+                // try localhost first (root@localhost exists)
+                for h in ["localhost", "127.0.0.1"] {
+                    let out = std::process::Command::new(&client_bin)
+                        .arg("-u")
+                        .arg("root")
+                        .arg(format!("--host={}", h))
+                        .arg(format!("--port={}", port))
+                        .arg("-e")
+                        .arg(sql)
+                        .output();
+                    if let Ok(o) = out {
+                        if o.status.success() {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Ok(pid)
 }
 

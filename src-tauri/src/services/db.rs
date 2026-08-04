@@ -213,37 +213,48 @@ pub fn exec_mysql_query(app_root: &Path, sql: &str, port: u16) -> Result<(), Str
         })?;
 
     // Quick TCP check if MySQL port open — if closed, MySQL likely OFF
-    if std::net::TcpStream::connect(format!("127.0.0.1:{}", port)).is_err() {
+    if std::net::TcpStream::connect(format!("127.0.0.1:{}", port)).is_err()
+        && std::net::TcpStream::connect(format!("localhost:{}", port)).is_err()
+    {
         return Err(
             "MySQL belum ON, DB belum dibuat – Start MySQL dulu lalu klik [Create DB]".to_string(),
         );
     }
 
-    let output = Command::new(&client_bin)
-        .arg("-u")
-        .arg("root")
-        .arg("-h")
-        .arg("127.0.0.1")
-        .arg("-P")
-        .arg(port.to_string())
-        .arg("-e")
-        .arg(sql)
-        .output()
-        .map_err(|e| format!("Gagal jalankan mysql client: {}", e))?;
+    // MySQL 8 after --initialize-insecure only has root@localhost, not root@127.0.0.1.
+    // Use localhost (socket/shared-mem) to avoid 1130 Host not allowed.
+    // Fallback to 127.0.0.1 handled in retry loop below.
+    for host in ["localhost", "127.0.0.1"] {
+        let output = Command::new(&client_bin)
+            .arg("-u")
+            .arg("root")
+            .arg(format!("--host={}", host))
+            .arg(format!("--port={}", port))
+            .arg("-e")
+            .arg(sql)
+            .output()
+            .map_err(|e| format!("Gagal jalankan mysql client: {}", e))?;
 
-    if output.status.success() {
-        Ok(())
-    } else {
+        if output.status.success() {
+            return Ok(());
+        }
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let combined = format!("{} {}", stdout, stderr).to_lowercase();
-        if combined.contains("can't connect") || combined.contains("10061") || combined.contains("2003") {
+        let combined_lower = format!("{} {}", stdout, stderr).to_lowercase();
+        // 1130 Host not allowed -> try next host (localhost vs 127.0.0.1)
+        if combined_lower.contains("1130") || combined_lower.contains("not allowed to connect") {
+            // try next host
+            continue;
+        }
+        if combined_lower.contains("can't connect") || combined_lower.contains("10061") || combined_lower.contains("2003") {
             return Err(
                 "MySQL belum ON, DB belum dibuat – Start MySQL dulu lalu klik [Create DB]".to_string(),
             );
         }
-        Err(format!("Gagal buat DB: {}", stderr.trim()))
+        // other error -> return immediately
+        return Err(format!("Gagal buat DB: {}", stderr.trim()));
     }
+    Err("Gagal buat DB: Host 127.0.0.1 & localhost tidak diizinkan 😅 Coba Repair MySQL".to_string())
 }
 
 /// Create database IF NOT EXISTS.
