@@ -1,42 +1,123 @@
-Vanompp V1 - Cara pakai di lab SMK (Windows portable)
-=====================================================
+﻿VANOMPP v0.1.0 — GURU SMK CHEAT SHEET (1 halaman anti-bingung)
+=============================================================
+Versi: 0.1.0 Windows portable | USP: Anti-bingung path localhost
+Brand: vanompp lowercase, volt lime #E9FF70 ON/BIG URL, Zinc 950 bg
 
-Apa itu Vanompp? Laragon lite khusus anak SMK kelas 10-11 yang sering bingung:
-- File taro di mana?
-- URL localhost yang mana?
-- Gimana konek MySQL?
+10 LANGKAH LAB (copy-paste buat siswa)
 
-USP: Anti-bingung path localhost > ringan jadi bonus.
+1. DOWNLOAD ZIP
+   Dapat file Vanompp-portable-v0.1.0.zip ~250MB dari guru/flashdisk.
+   Jangan extract di Program Files (butuh admin) — pakai C:\Vanompp atau D:\Vanompp.
 
-Cara pakai:
-1. Extract zip Vanompp-portable.zip ke D:\ atau C:\ - usahakan path tanpa spasi (contoh D:\Vanompp) biar aman
-2. Double-click Vanompp.exe - gak perlu install, gak perlu admin, offline bisa
-3. Klik [Start All] tunggu hijau ON (Apache & MySQL) - Volt Lime dot = ON
-4. Di card "Buat Baru" isi nama-project contoh: belajar-php (huruf kecil angka - aja)
-   - Centang [x] Buat database MySQL sekalian? (default on) → nama DB otomatis belajar_php
-   - Klik [+ Create]
-5. Lihat BIG URL di card Project Ku: http://localhost:8080/belajar-php → gede, warna Volt, gak bisa kelewat
-6. Klik [Buka di Browser] → browser eksternal buka + H1 "belajar-php jalan!" + DB Connected
-7. Folder project ada di www/belajar-php - edit pakai VS Code / Notepad++
-   - index.php = html dasar + include conn.php
-   - conn.php = template mysqli_connect procedural hardcode (tinggal pakai, belajar dulu)
-   - .gitignore sudah include conn.php biar gak ke-push
-8. Buka phpMyAdmin via tombol [Open phpMyAdmin] → http://localhost:8080/phpmyadmin (root no pass V1)
-9. Tools footer: [PHP Terminal] (cmd with php), [Logs] (error.log), [www folder] (explorer)
+2. EXTRACT
+   Klik kanan > Extract All ke D:\Vanompp
+   Hasil: D:\Vanompp\Vanompp.exe + bin\ (apache/php/mysql) + www\ + GURU_SMK.txt + vanompp.json
 
-Kalau error:
-- Port 8080 dipakai IIS/Skype/XAMPP lama: popup "Mau ganti ke 8081? [Ya]" → klik Ya, URL otomatis update
-- Port 3306 dipakai MySQL lain: similar ganti 3307
-- Apache gagal start: biasanya butuh VC++ Redist - klik [Install VC++ Redist] di toast atau jalankan bin/apache/vc_redist.x64.exe atau winget install Microsoft.VCRedist.2015+.x64
-- MySQL data error: klik [Repair] → hapus *.pid
-- Folder www gak kebaca: klik [Buka Explorer] cek antivirus blokir
+3. RUN (NO ADMIN)
+   Double klik Vanompp.exe — offline bisa, gak perlu install, gak perlu admin.
+   Window: Geist Sans/Mono, Zinc 950 #09090B, BezelCard p-1.5 rounded-[1.75rem], volt dot ON.
 
-Tips:
-- Nama project cuma boleh huruf kecil angka tanda hubung -, max 32, jangan pakai phpmyadmin/mysql
-- Kalau gak centang Buat DB, conn.php $db="" kosong - nanti bisa [Create DB] terpisah
-- Project lama tinggal copy folder ke www/, auto ke-scan dropdown
+4. START ALL (Apache 8080, MySQL 3306)
+   Klik [Start All] — tunggu badge Apache ON + MySQL ON (volt lime dot).
+   Port default sengaja 8080 biar gak bentrok IIS (port 80) di lab Windows.
 
-Distribusi: Zip portable ini free open-source, tinggal share via flashdisk lab.
+5. JIKA PORT BENTROK
+   Modal muncul: "Port 8080 dipakai sama IIS/Skype/XAMPP lama — Mau ganti ke 8081?"
+   Klik [Pakai saran] — URL otomatis update ke 8081, aman.
+   MySQL bentrok 3306 (XAMPP lain) => saran 3307.
 
-GitHub: coming soon
-Version: v0.1.0 Windows only portable
+6. BUAT PROJECT
+   Card "Buat Project Baru" — ketik nama: belajar-php (huruf kecil, angka, - aja, max 32)
+   Centang [x] Buat database MySQL sekalian? (default ON) — nama DB otomatis belajar_php (_ bukan -)
+   Klik [+ Create] → toast "Project belajar-php dibuat! URL: http://localhost:8080/belajar-php + DB belajar_php"
+
+7. LIHAT BIG URL (ANTI-BINGUNG)
+   Dropdown "Project • BIG URL anti-bingung" — pilih belajar-php
+   Muncul BIG URL gede warna volt: http://localhost:8080/belajar-php
+   Badge: index.php conn.php .gitignore DB ✓
+   - [Copy URL] → Copy URL (toast "URL dicopy! Paste di browser")
+   - [Buka di Browser] → buka external browser (H1 "belajar-php jalan! DB Connected")
+   - [Buka Folder] → Explorer www/belajar-php
+   - [Create DB] (kalau MySQL OFF pas create) → bikin DB terpisah pas MySQL ON
+   - [Open phpMyAdmin] → http://localhost:8080/phpmyadmin root no pass V1
+
+8. EDIT FILE
+   Folder project: www/belajar-php/
+   - index.php = html dasar Tailwind-ish, include conn.php, cek $conn
+   - conn.php = mysqli_connect procedural hardcode host=localhost user=root pass="" db=slug
+               edukasi die(mysqli_connect_error()) aman buat kelas 10-11
+   - .gitignore = /vendor/ .env *.log conn.php .DS_Store Thumbs.db (conn.php ignore biar gak ke-push)
+   Edit pakai VS Code / Notepad++ — save langsung jalan, no build.
+
+9. LOGS & TROUBLESHOOT
+   Header kanan ada tombol [Logs] — klik → LogViewer modal BezelCard volt
+   Tabs: Apache error | access | MySQL | PHP | [Refresh] [Copy] [Tutup]
+   Command backend: invoke('read_log', {service:'apache', lines:100}) tail 100 baris, placeholder "Log belum ada..." kalau kosong.
+
+   Kalau error:
+   - Port 8080 dipakai IIS/Skype/XAMPP lama: popup saran 8081 → Ya.
+   - Port 3306 dipakai MySQL lain: saran 3307 → Ya.
+   - Apache gagal start: toast "Apache gagal start 😅 Cek error.log - biasanya butuh VC++ Redist."
+     Solusi: install VC++ Redist 2015-2022 x64 → bin/apache/vc_redist.x64.exe atau winget install Microsoft.VCRedist.2015+.x64
+   - MySQL data error / corrupt: Stop MySQL, hapus bin/mysql/data/*.pid (backup dulu), Start lagi.
+     Kalau masih gagal, hapus bin/mysql/data (backup dulu!) nanti auto init saat start.
+   - Folder www gak kebaca: cek antivirus blokir httpd.exe/mysqld.exe — add exception.
+   - Nama project invalid: MSG.invalidSlug "Nama project cuma boleh huruf kecil, angka, tanda -. Contoh: belajar-php"
+   - Folder sudah ada: toast "Folder belajar-php udah ada. [Buka yang ada] aja?" — pilih dari dropdown.
+   - MySQL OFF pas buat project: file tetap kebikin, DB nanti — toast MSG.mysqlOff "MySQL belum ON, DB belum dibuat..."
+
+10. DISTRIBUSI KE LAB
+   Copy seluruh folder hasil extract (portable) ke flashdisk.
+   Siswa tinggal copy ke PC lab (D:\Vanompp) lalu run Vanompp.exe — no install, no admin, offline.
+   Size ~250MB zip (Laragon similar) — acceptable, future V2 on-demand download.
+   Future installer: MSI/NSIS secondary via tauri bundle targets ["msi","nsis"] — untuk guru yang mau setup.exe.
+
+TIPS GURU
+
+- Nama project: lowercase angka - saja, max 32, jangan pakai phpmyadmin/mysql/php/con/prn/aux (deny list)
+- Kalau gak centang Buat DB: conn.php $db="" kosong — nanti bisa [Create DB] terpisah
+- Project lama: tinggal copy folder ke www/, auto ke-scan dropdown pas refresh
+- PHP Terminal: cmd with php in PATH — future V2, sekarang manual buka cmd di bin/php
+- phpMyAdmin: root no pass V1 (aman SMK offline), future V2 secure
+- Config template: {{ROOT}} pakai forward slash / aman space path, "quote" semua conf (httpd-vano.conf, my.ini, php.ini)
+- Timezone: Asia/Jakarta default di php.ini.minimal
+- Extension SMK: mysqli, pdo_mysql, openssl, curl, mbstring, gd, zip, fileinfo, etc minimal
+
+STRUKTUR ZIP PORTABLE
+
+Vanompp-portable-v0.1.0.zip
+  Vanompp.exe (or target/release)
+  bin/
+    apache/{httpd.exe, conf/httpd-vano.conf (generated runtime), logs/error.log, modules/, etc}
+    php/{php.exe, php8apache2_4.dll (TS!), ext/*, tmp/, logs/php_error.log, php.ini (generated runtime)}
+    mysql/{bin/mysqld.exe, bin/mysql.exe, data/mysql_error.log, data/tmp/}
+    phpmyadmin/{index.php, ...}
+  www/
+    __vano_health/index.php (<?php echo "ok"; for health check)
+    .gitkeep
+    (project folders: belajar-php/index.php, conn.php, .gitignore)
+  GURU_SMK.txt (this file)
+  vanompp.json ({"apache_port":8080,"mysql_port":3306})
+
+BUILD (buat guru IT yang mau build sendiri)
+
+  npm install
+  npm run dev (Vite 1420 + Tauri window)
+  npm run check (svelte-check)
+  cargo test (48 tests: path, config, project, service, db, logs)
+  npm run tauri build -> dist/bundle/msi + nsis + target/release/Vanompp.exe
+  pwsh scripts/build-portable-zip.ps1 -Version 0.1.0
+  Output: dist/Vanompp-portable-v0.1.0.zip + dist/Vanompp-portable/ folder
+
+KONTAK / CREDITS
+
+  GitHub: coming soon
+  Stack: Tauri v2 + Svelte 5 + Vite + Tailwind v4 + @tauri-apps/api
+  Brand: Geist Sans + Mono, Zinc 950 #09090B base, Zinc 900 card, white/10 hairline + inset, Volt Lime #E9FF70 accent only ON/BIG URL/Copy success, Double-Bezel p-1.5 rounded-[1.75rem], Button-in-Button w-7 bg-white/10 rounded-full
+  Motion: cubic-bezier(0.32,0.72,0,1) 600ms
+  License: Free OSS portable zip Windows only V1
+
+===
+VANOMPP — anti-bingung path localhost untuk SMK kelas 10-11
+Anak SMK bisa Create → lihat BIG URL → klik Buka di Browser → jalan <60 detik tanpa tanya guru.
+===

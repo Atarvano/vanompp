@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import { get } from 'svelte/store'
   import BrandWordmark from './lib/components/BrandWordmark.svelte'
@@ -17,16 +17,13 @@
   let toasts: ToastItem[] = []
   let nextToastId = 1
 
-  // Port conflict modal state
   let modalOpen = false
   let modalConflicts: ConflictInfo[] = []
   let modalError = ''
 
-  // LogViewer state
   let logOpen = false
   let logService: 'apache' | 'mysql' | 'php' | null = null
 
-  // polling
   let pollTimer: ReturnType<typeof setInterval> | null = null
   const POLL_MS = 3000
 
@@ -39,25 +36,19 @@
     pollTimer = setInterval(() => { refreshStatus() }, POLL_MS)
   })
 
-  onDestroy(() => {
-    if (pollTimer) clearInterval(pollTimer)
-  })
+  onDestroy(() => { if (pollTimer) clearInterval(pollTimer) })
 
   function addToast(msg: string, kind: 'info' | 'error' = 'info') {
     const id = nextToastId++
     toasts = [...toasts, { id, msg, kind } as any]
-    // Toast component auto-dismiss also, but keep fallback
     setTimeout(() => { toasts = toasts.filter((t) => t.id !== id) }, 5500)
   }
 
   function handleCreated(e: CustomEvent) {
     const { name, db, warn } = e.detail as { name: string; db?: string; warn?: string }
     const port = apachePort ?? 8080
-    if (warn) {
-      addToast(warn, 'error')
-    } else {
-      addToast(MSG.created(name, port, db))
-    }
+    if (warn) addToast(warn, 'error')
+    else addToast(MSG.created(name, port, db))
     refreshProjects(port)
   }
 
@@ -97,20 +88,14 @@
 
   async function handleUseSuggest(e: CustomEvent) {
     const c = e.detail as ConflictInfo
-    if (c.name === 'apache') {
-      services.update((s) => ({ ...s, apachePort: c.suggest }))
-    } else {
-      services.update((s) => ({ ...s, mysqlPort: c.suggest }))
-    }
+    if (c.name === 'apache') services.update((s) => ({ ...s, apachePort: c.suggest }))
+    else services.update((s) => ({ ...s, mysqlPort: c.suggest }))
     modalOpen = false
     addToast(`Coba pakai port ${c.suggest} buat ${c.name.toUpperCase()}...`)
-
     try {
       await startService(c.name, c.suggest)
       addToast(`${c.name.toUpperCase()} nyala di port ${c.suggest} 🎉`)
-      if (c.name === 'apache') {
-        await refreshProjects(c.suggest)
-      }
+      if (c.name === 'apache') await refreshProjects(c.suggest)
       await refreshStatus()
     } catch (err) {
       const msg = typeof err === 'string' ? err : String(err)
@@ -123,8 +108,7 @@
   function handleModalClose() { modalOpen = false }
 
   async function handleOpenLog() {
-    // Open LogViewer for apache by default when conflict modal asks for logs
-    logService = modalConflicts[0]?.name ?? 'apache'
+    logService = (modalConflicts[0]?.name as any) ?? 'apache'
     logOpen = true
     modalOpen = false
   }

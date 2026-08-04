@@ -1,10 +1,11 @@
-<script lang="ts">
+﻿<script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
   import { openUrl } from '@tauri-apps/plugin-opener'
   import BezelCard from './BezelCard.svelte'
   import { projects, selected, refreshProjects, createDatabase } from '$lib/stores/projects'
   import { services } from '$lib/stores/services'
   import { createEventDispatcher } from 'svelte'
+  import { MSG } from '$lib/utils/messages'
 
   const dispatch = createEventDispatcher()
 
@@ -41,6 +42,7 @@
       ta.remove()
     }
     copied = true
+    dispatch('toast', { msg: MSG.copyUrlSuccess, kind: 'info' })
     setTimeout(() => (copied = false), 1800)
   }
 
@@ -49,6 +51,7 @@
     openErr = null
     try {
       await openUrl(currentUrl)
+      dispatch('toast', { msg: MSG.openBrowserSuccess(currentUrl), kind: 'info' })
     } catch {
       window.open(currentUrl, '_blank')
     }
@@ -61,7 +64,8 @@
     try {
       await invoke('open_project_folder', { name: sel })
     } catch (e) {
-      openErr = typeof e === 'string' ? e : String(e)
+      const raw = typeof e === 'string' ? e : String(e)
+      openErr = MSG.openFolderFail(raw)
     } finally {
       folderLoading = false
     }
@@ -75,13 +79,20 @@
     dbErr = null
     try {
       await createDatabase(targetDb, mysqlPort)
-      dbMsg = `DB ${targetDb} berhasil dibuat!`
+      dbMsg = MSG.dbCreated(targetDb)
       await refreshProjects(apachePort)
-      dispatch('toast', { msg: `DB ${targetDb} OK — coba refresh conn.php`, kind: 'info' })
+      dispatch('toast', { msg: dbMsg, kind: 'info' })
     } catch (e) {
-      const msg = typeof e === 'string' ? e : (e as any)?.toString() || 'Gagal buat DB'
-      dbErr = msg
-      dispatch('toast', { msg, kind: 'error' })
+      const raw = typeof e === 'string' ? e : (e as any)?.toString() || 'Gagal buat DB'
+      if (raw.toLowerCase().includes('mysql belum on') || raw.toLowerCase().includes('connection') || raw.toLowerCase().includes('refused')) {
+        dbErr = MSG.mysqlOff
+      } else if (raw.toLowerCase().includes('sudah ada') || raw.toLowerCase().includes('exists')) {
+        dbMsg = MSG.dbExists(targetDb)
+        await refreshProjects(apachePort)
+      } else {
+        dbErr = MSG.dbFail(raw)
+      }
+      dispatch('toast', { msg: dbErr ?? dbMsg ?? raw, kind: dbErr ? 'error' as const : 'info' as const })
     } finally {
       dbLoading = false
     }
