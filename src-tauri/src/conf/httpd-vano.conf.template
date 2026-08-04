@@ -1,11 +1,11 @@
 # Vanompp Apache template - minimal working
-# Placeholders: {{ROOT}} = app root with forward slashes, {{APACHE_PORT}} = port
+# Placeholders: {{ROOT}} = bin root parent, {{APACHE_PORT}} = port, {{WWW_ROOT}} = actual www folder
 # Generated at runtime by services/apache.rs render_conf
 
 ServerRoot "{{ROOT}}/bin/apache"
 Listen {{APACHE_PORT}}
 ServerName localhost:{{APACHE_PORT}}
-DocumentRoot "{{ROOT}}/www"
+DocumentRoot "{{WWW_ROOT}}"
 DirectoryIndex index.php index.html
 
 # Minimal modules required for PHP + directory + alias + auth
@@ -22,7 +22,7 @@ LoadModule php_module "{{ROOT}}/bin/php/php8apache2_4.dll"
     Require all denied
 </Directory>
 
-<Directory "{{ROOT}}/www">
+<Directory "{{WWW_ROOT}}">
     Options Indexes FollowSymLinks
     AllowOverride All
     Require all granted

@@ -42,17 +42,30 @@ pub fn render_conf(root: &PathBuf, apache_port: u16) -> Result<PathBuf, String> 
         (None, None)
     };
 
-    // ROOT for template = bin_root's parent's parent? Actually template uses {{ROOT}}/bin/apache etc.
-    // So if bin_root = .../bin (parent of apache/php), ROOT = bin_root's parent.
-    // If bin_root = .../resources/bin, ROOT = .../resources
-    let fwd = if let Some(br) = bin_root_for_fwd.as_ref() {
-        let root_for_template = br.parent().unwrap_or(br.as_path()).to_path_buf();
-        root_forward(&root_for_template)
-    } else {
-        root_forward(root)
+    // ROOT for template = bin_root parent (C:/Vanompp or .../resources)
+    let (fwd, www_fwd) = {
+        let root_for_template = if let Some(br) = bin_root_for_fwd.as_ref() {
+            br.parent().unwrap_or(br.as_path()).to_path_buf()
+        } else {
+            root.clone()
+        };
+        let f = root_forward(&root_for_template);
+        // www is always actual project www, not resources/www which doesn't exist in dev
+        // Try root/www first (project root), then resources/www, then root_for_template/www fallback
+        let www_candidate = if root.join("www").exists() {
+            root.join("www")
+        } else if root_for_template.join("www").exists() {
+            root_for_template.join("www")
+        } else {
+            // For dev: project root is parent of src-tauri; www at D:/Vanompp/www
+            // root param is D:/Vanompp, so root/www exists — already handled. Fallback create.
+            root_for_template.join("www")
+        };
+        let wf = root_forward(&www_candidate);
+        (f, wf)
     };
 
-    let rendered = render_httpd(&fwd, apache_port);
+    let rendered = render_httpd(&fwd, apache_port, &www_fwd);
     let php_rendered = render_phpini(&fwd);
 
     // Resolve real bin dirs (might be resources/bin layout)
@@ -157,10 +170,30 @@ pub fn start_apache(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u
     let _ = std::fs::create_dir_all(&logs_dir);
     let error_log_path = logs_dir.join("error.log");
 
+    // Config syntax check first — gives better error than empty error.log
+    // httpd.exe often writes syntax errors to stderr, not error.log, if ServerRoot invalid.
+    {
+        let mut check_cmd = std::process::Command::new(&httpd_path);
+        check_cmd.arg("-t").arg("-f").arg(&conf_path);
+        if let Some(apache_root) = httpd_path.parent().and_then(|p| p.parent()) {
+            check_cmd.current_dir(apache_root);
+        }
+        if let Ok(out) = check_cmd.output() {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let combined = format!("{}{}", stdout, stderr);
+            if !out.status.success() {
+                // Show config error directly — this is why error.log empty
+                return Err(format!(
+                    "Apache config error 😅 Syntax check gagal:\n{}\nConf: {}\nCoba klik Repair atau cek VC++ redist (php8apache2_4.dll butuh).",
+                    combined.chars().take(800).collect::<String>(),
+                    conf_path.display()
+                ));
+            }
+        }
+    }
+
     // Spawn httpd
-    // ApacheLounge typical: httpd.exe -f "<confPath>"  (no -k start needed if using -f alone as service?
-    // Spec says -f confPath -d root. Using -f is enough, it will run foreground if no -k.
-    // We'll use -f with absolute path. Also pass -d if needed.
     #[allow(unused_mut)]
     let mut cmd = std::process::Command::new(&httpd_path);
     cmd.arg("-f").arg(&conf_path);
@@ -196,21 +229,31 @@ pub fn start_apache(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u
 
         // Check if pid still alive
         if !is_pid_alive(pid) {
-            // Read error log tail
-            let tail = read_tail(&error_log_path, 20);
-            // Clean map
+            let tail = read_tail(&error_log_path, 30);
+            let access_exists = logs_dir.join("access.log").exists();
             if let Ok(mut map) = state.childs.lock() {
                 map.remove("apache");
             }
             if tail.is_empty() {
-                return Err(
-                    "Apache gagal start 😅 Cek error.log — httpd.exe keluar tanpa log".to_string(),
-                );
-            } else {
+                // Try to get config check again for better msg
+                let mut check_cmd = std::process::Command::new(&httpd_path);
+                check_cmd.arg("-t").arg("-f").arg(&conf_path);
+                if let Some(ar) = httpd_path.parent().and_then(|p| p.parent()) {
+                    check_cmd.current_dir(ar);
+                }
+                let cfg_msg = if let Ok(out) = check_cmd.output() {
+                    let s = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+                    if !s.trim().is_empty() { s.chars().take(600).collect::<String>() } else { String::new() }
+                } else { String::new() };
+                if !cfg_msg.is_empty() {
+                    return Err(format!("Apache gagal start 😅 Syntax:\n{}\nConf: {}\nLog empty (access log exists? {}). Cek VC++ redist & php dll.", cfg_msg, conf_path.display(), access_exists));
+                }
                 return Err(format!(
-                    "Apache gagal start 😅 Cek error.log:\n{}",
-                    tail
+                    "Apache gagal start 😅 httpd.exe keluar tanpa log (log empty). Conf: {}\nKemungkinan: VC++ redist belum install (butuh untuk php8apache2_4.dll), atau port {} dipakai, atau www folder hilang. Coba: 1) Install VC++ 2015-2022 x64, 2) Klik Repair, 3) Cek Task Manager httpd.",
+                    conf_path.display(), port
                 ));
+            } else {
+                return Err(format!("Apache gagal start 😅 Cek error.log:\n{}", tail));
             }
         }
 
