@@ -16,6 +16,7 @@ build/
 
 # Tauri bundle + portable heavy bins
 src-tauri/resources/bin/
+!src-tauri/resources/bin/README.md
 bin/
 www/*
 !www/.gitkeep

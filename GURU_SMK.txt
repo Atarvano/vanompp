@@ -1,0 +1,42 @@
+Vanompp V1 - Cara pakai di lab SMK (Windows portable)
+=====================================================
+
+Apa itu Vanompp? Laragon lite khusus anak SMK kelas 10-11 yang sering bingung:
+- File taro di mana?
+- URL localhost yang mana?
+- Gimana konek MySQL?
+
+USP: Anti-bingung path localhost > ringan jadi bonus.
+
+Cara pakai:
+1. Extract zip Vanompp-portable.zip ke D:\ atau C:\ - usahakan path tanpa spasi (contoh D:\Vanompp) biar aman
+2. Double-click Vanompp.exe - gak perlu install, gak perlu admin, offline bisa
+3. Klik [Start All] tunggu hijau ON (Apache & MySQL) - Volt Lime dot = ON
+4. Di card "Buat Baru" isi nama-project contoh: belajar-php (huruf kecil angka - aja)
+   - Centang [x] Buat database MySQL sekalian? (default on) → nama DB otomatis belajar_php
+   - Klik [+ Create]
+5. Lihat BIG URL di card Project Ku: http://localhost:8080/belajar-php → gede, warna Volt, gak bisa kelewat
+6. Klik [Buka di Browser] → browser eksternal buka + H1 "belajar-php jalan!" + DB Connected
+7. Folder project ada di www/belajar-php - edit pakai VS Code / Notepad++
+   - index.php = html dasar + include conn.php
+   - conn.php = template mysqli_connect procedural hardcode (tinggal pakai, belajar dulu)
+   - .gitignore sudah include conn.php biar gak ke-push
+8. Buka phpMyAdmin via tombol [Open phpMyAdmin] → http://localhost:8080/phpmyadmin (root no pass V1)
+9. Tools footer: [PHP Terminal] (cmd with php), [Logs] (error.log), [www folder] (explorer)
+
+Kalau error:
+- Port 8080 dipakai IIS/Skype/XAMPP lama: popup "Mau ganti ke 8081? [Ya]" → klik Ya, URL otomatis update
+- Port 3306 dipakai MySQL lain: similar ganti 3307
+- Apache gagal start: biasanya butuh VC++ Redist - klik [Install VC++ Redist] di toast atau jalankan bin/apache/vc_redist.x64.exe atau winget install Microsoft.VCRedist.2015+.x64
+- MySQL data error: klik [Repair] → hapus *.pid
+- Folder www gak kebaca: klik [Buka Explorer] cek antivirus blokir
+
+Tips:
+- Nama project cuma boleh huruf kecil angka tanda hubung -, max 32, jangan pakai phpmyadmin/mysql
+- Kalau gak centang Buat DB, conn.php $db="" kosong - nanti bisa [Create DB] terpisah
+- Project lama tinggal copy folder ke www/, auto ke-scan dropdown
+
+Distribusi: Zip portable ini free open-source, tinggal share via flashdisk lab.
+
+GitHub: coming soon
+Version: v0.1.0 Windows only portable

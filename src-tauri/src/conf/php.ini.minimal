@@ -1,0 +1,58 @@
+; Vanompp PHP minimal - copied from php.ini-development then trimmed
+; Placeholder {{ROOT}} replaced at runtime for extension_dir / log paths
+[PHP]
+; ---------- paths ----------
+extension_dir="{{ROOT}}/bin/php/ext"
+sys_temp_dir="{{ROOT}}/bin/php/tmp"
+upload_tmp_dir="{{ROOT}}/bin/php/tmp"
+log_errors=On
+error_log="{{ROOT}}/bin/php/logs/php_error.log"
+error_reporting=E_ALL & ~E_DEPRECATED & ~E_STRICT
+display_errors=On
+display_startup_errors=On
+html_errors=On
+
+; ---------- resource ----------
+memory_limit=128M
+max_execution_time=60
+upload_max_filesize=32M
+post_max_size=32M
+max_input_vars=3000
+
+; ---------- session ----------
+session.save_path="{{ROOT}}/bin/php/tmp"
+session.gc_probability=1
+session.gc_divisor=100
+
+; ---------- date ----------
+date.timezone=Asia/Jakarta
+
+; ---------- extensions minimal for SMK ----------
+; SMK needs mysqli, pdo_mysql, openssl, curl, mbstring, gd, zip(optional), fileinfo, exif
+extension=mysqli
+extension=pdo_mysql
+extension=openssl
+extension=curl
+extension=mbstring
+extension=gd
+extension=fileinfo
+extension=zip
+extension=exif
+; common
+extension=bcmath
+; keep opcache on for prod feeling, but ok to disable if want
+zend_extension=opcache
+
+[opcache]
+opcache.enable=1
+opcache.memory_consumption=64
+opcache.max_accelerated_files=10000
+
+[Date]
+date.timezone=Asia/Jakarta
+
+[MySQLi]
+mysqli.default_host=127.0.0.1
+mysqli.default_port=3306
+mysqli.default_user=root
+mysqli.default_pw=
