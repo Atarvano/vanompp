@@ -1,7 +1,7 @@
 ﻿<script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
-  import { openUrl } from '@tauri-apps/plugin-opener'
   import BezelCard from './BezelCard.svelte'
+  import { openExternal } from '$lib/utils/open'
   import { projects, selected, refreshProjects, createDatabase } from '$lib/stores/projects'
   import { services } from '$lib/stores/services'
   import { createEventDispatcher } from 'svelte'
@@ -49,12 +49,8 @@
   async function openBrowser() {
     if (!currentUrl) return
     openErr = null
-    try {
-      await openUrl(currentUrl)
-      dispatch('toast', { msg: MSG.openBrowserSuccess(currentUrl), kind: 'info' })
-    } catch {
-      window.open(currentUrl, '_blank')
-    }
+    await openExternal(currentUrl)
+    dispatch('toast', { msg: MSG.openBrowserSuccess(currentUrl), kind: 'info' })
   }
 
   async function openFolder() {
@@ -100,12 +96,7 @@
 
   async function openPhpMyAdmin() {
     openErr = null
-    try {
-      const url = `http://localhost:${apachePort}/phpmyadmin`
-      await openUrl(url)
-    } catch {
-      window.open(`http://localhost:${apachePort}/phpmyadmin`, '_blank')
-    }
+    await openExternal(`http://localhost:${apachePort}/phpmyadmin`)
   }
 </script>
 

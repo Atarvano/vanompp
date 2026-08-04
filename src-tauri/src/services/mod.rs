@@ -3,6 +3,7 @@ pub mod db;
 pub mod mysql;
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use sysinfo::{Pid, System};
 
@@ -102,4 +103,61 @@ pub fn resolve_mysql_client_bin(root: &std::path::PathBuf) -> Result<std::path::
     resolve_bin(root, "mysql/bin/mysql.exe")
         .or_else(|| resolve_bin(root, "mysql/bin/mysql"))
         .ok_or_else(|| "mysql.exe tidak ketemu 😅 pastikan bin/mysql ada".to_string())
+}
+
+// ---------- Task 18: shared layout helpers (ponytail) ----------
+// Dedup of apache.rs / mysql.rs pattern:
+// exe = .../bin/<service>/bin/<binary.exe>
+// bin_dir      = exe.parent()               = .../bin/<service>/bin
+// service_root = bin_dir.parent()           = .../bin/<service>
+// bin_root     = service_root.parent()      = .../bin or .../resources/bin
+// app_root     = bin_root.parent()          = C:/Vanompp or D:/Vanompp or .../resources
+// root_forward = app_root forward slashes for template {{ROOT}}
+
+/// Given resolved exe path, return (service_root, bin_root, app_root)
+/// service_root = .../bin/<service>, bin_root = .../bin, app_root = parent of bin_root
+/// All unwraps safe-guarded — fallback to exe ancestor if parent missing.
+pub(crate) fn layout_from_exe(exe: &Path) -> (PathBuf, PathBuf, PathBuf) {
+    let bin_dir = exe.parent().unwrap_or(exe).to_path_buf();
+    let svc_root = bin_dir.parent().unwrap_or(bin_dir.as_path()).to_path_buf();
+    let bin_root = svc_root.parent().unwrap_or(svc_root.as_path()).to_path_buf();
+    let app_root = bin_root.parent().unwrap_or(bin_root.as_path()).to_path_buf();
+    (svc_root, bin_root, app_root)
+}
+
+// ponytail: sugar helpers — no extra abstraction, just unwrap tuple to call sites
+pub(crate) fn service_root_from_exe(exe: &Path) -> PathBuf {
+    layout_from_exe(exe).0
+}
+
+pub(crate) fn app_root_from_exe(exe: &Path) -> PathBuf {
+    layout_from_exe(exe).2
+}
+
+/// Forward-slash string for template {{ROOT}} from an app_root path.
+pub(crate) fn fwd_from_app_root(app_root: &Path) -> String {
+    crate::conf::root_forward(&app_root.to_path_buf())
+}
+
+/// Compute template fwd from optional exe. If exe present, use its app_root,
+/// else fallback to root param (original behavior preserved).
+pub(crate) fn template_root_forward(root: &PathBuf, exe_opt: Option<&PathBuf>) -> String {
+    if let Some(exe) = exe_opt {
+        let (_, _, app_root) = layout_from_exe(exe);
+        fwd_from_app_root(&app_root)
+    } else {
+        crate::conf::root_forward(root)
+    }
+}
+
+/// Required dir — error with label preserved (emoji messages kept in callers via label).
+pub(crate) fn ensure_dir_required(p: &Path, label: &str) -> Result<(), String> {
+    std::fs::create_dir_all(p).map_err(|e| format!("{}: {}", label, e))
+}
+
+/// Best-effort batch — ignore errors (original ensure_dirs behavior).
+pub(crate) fn ensure_dirs_best_effort(paths: &[PathBuf]) {
+    for p in paths {
+        let _ = std::fs::create_dir_all(p);
+    }
 }

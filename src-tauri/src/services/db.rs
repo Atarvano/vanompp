@@ -1,131 +1,24 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Resolve mysql client binary (mysql.exe) using same logic as resolve_bin.
+use crate::services::resolve_bin;
+use crate::utils::port::is_port_occupied_tcp;
+
+/// ponytail: was 55 lines duplicate of services::resolve_bin — reuse single source
 fn resolve_mysql_client_bin(app_root: &Path) -> Option<PathBuf> {
-    let mut candidates = Vec::new();
-    candidates.push(app_root.join("bin").join("mysql").join("bin").join("mysql.exe"));
-    candidates.push(app_root.join("resources").join("bin").join("mysql").join("bin").join("mysql.exe"));
-    candidates.push(
-        app_root
-            .join("src-tauri")
-            .join("resources")
-            .join("bin")
-            .join("mysql")
-            .join("bin")
-            .join("mysql.exe"),
-    );
-    // walk up ancestors
-    let mut cur = app_root.to_path_buf();
-    for _ in 0..6 {
-        candidates.push(cur.join("bin").join("mysql").join("bin").join("mysql.exe"));
-        candidates.push(
-            cur.join("resources")
-                .join("bin")
-                .join("mysql")
-                .join("bin")
-                .join("mysql.exe"),
-        );
-        candidates.push(
-            cur.join("src-tauri")
-                .join("resources")
-                .join("bin")
-                .join("mysql")
-                .join("bin")
-                .join("mysql.exe"),
-        );
-        if !cur.pop() {
-            break;
-        }
-    }
-    if let Ok(cwd) = std::env::current_dir() {
-        let mut cur = cwd;
-        for _ in 0..4 {
-            candidates.push(cur.join("bin").join("mysql").join("bin").join("mysql.exe"));
-            candidates.push(
-                cur.join("resources")
-                    .join("bin")
-                    .join("mysql")
-                    .join("bin")
-                    .join("mysql.exe"),
-            );
-            candidates.push(
-                cur.join("src-tauri")
-                    .join("resources")
-                    .join("bin")
-                    .join("mysql")
-                    .join("bin")
-                    .join("mysql.exe"),
-            );
-            if !cur.pop() {
-                break;
-            }
-        }
-    }
-    for p in candidates {
-        if p.exists() {
-            return Some(p);
-        }
-    }
-    None
+    resolve_bin(&app_root.to_path_buf(), "mysql/bin/mysql.exe")
+        .or_else(|| resolve_bin(&app_root.to_path_buf(), "mysql/bin/mysql"))
 }
 
-/// Resolve mysql data dir (where database folders live).
+/// ponytail: dupe of resolve_bin but for data dir (needs is_dir check)
 fn resolve_mysql_data_dir(app_root: &Path) -> Option<PathBuf> {
-    let mut candidates = Vec::new();
-    candidates.push(app_root.join("bin").join("mysql").join("data"));
-    candidates.push(app_root.join("resources").join("bin").join("mysql").join("data"));
-    candidates.push(
-        app_root
-            .join("src-tauri")
-            .join("resources")
-            .join("bin")
-            .join("mysql")
-            .join("data"),
-    );
-    let mut cur = app_root.to_path_buf();
-    for _ in 0..6 {
-        candidates.push(cur.join("bin").join("mysql").join("data"));
-        candidates.push(
-            cur.join("resources")
-                .join("bin")
-                .join("mysql")
-                .join("data"),
-        );
-        candidates.push(
-            cur.join("src-tauri")
-                .join("resources")
-                .join("bin")
-                .join("mysql")
-                .join("data"),
-        );
-        if !cur.pop() {
-            break;
+    if let Some(b) = resolve_bin(&app_root.to_path_buf(), "mysql/data") {
+        if b.is_dir() {
+            return Some(b);
         }
     }
-    if let Ok(cwd) = std::env::current_dir() {
-        let mut cur = cwd;
-        for _ in 0..4 {
-            candidates.push(cur.join("bin").join("mysql").join("data"));
-            candidates.push(cur.join("resources").join("bin").join("mysql").join("data"));
-            candidates.push(
-                cur.join("src-tauri")
-                    .join("resources")
-                    .join("bin")
-                    .join("mysql")
-                    .join("data"),
-            );
-            if !cur.pop() {
-                break;
-            }
-        }
-    }
-    for p in candidates {
-        if p.exists() && p.is_dir() {
-            return Some(p);
-        }
-    }
-    None
+    let fb = app_root.join("bin").join("mysql").join("data");
+    if fb.is_dir() { Some(fb) } else { None }
 }
 
 /// Resolve app root from www path similar to previous logic.
@@ -213,8 +106,9 @@ pub fn exec_mysql_query(app_root: &Path, sql: &str, port: u16) -> Result<(), Str
         })?;
 
     // Quick TCP check if MySQL port open — if closed, MySQL likely OFF
-    if std::net::TcpStream::connect(format!("127.0.0.1:{}", port)).is_err()
-        && std::net::TcpStream::connect(format!("localhost:{}", port)).is_err()
+    // ponytail: reuse helper; keep localhost double-check (ipv6 vs ipv4)
+    if !is_port_occupied_tcp(port)
+        && std::net::TcpStream::connect(format!("localhost:{port}")).is_err()
     {
         return Err(
             "MySQL belum ON, DB belum dibuat – Start MySQL dulu lalu klik [Create DB]".to_string(),

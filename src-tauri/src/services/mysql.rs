@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::conf::{render_myini, root_forward};
 use crate::services::{is_pid_alive, kill_pid, read_tail, resolve_mysql_bin, ServiceState};
-use crate::utils::port::{is_port_free, suggest_next_free};
+use crate::utils::port::{is_port_free, is_port_occupied_tcp, suggest_next_free};
 
 fn ensure_mysql_dirs(data_dir: &PathBuf, logs_tmp: &PathBuf) -> Result<(), String> {
     std::fs::create_dir_all(data_dir).map_err(|e| format!("Gagal bikin data dir mysql: {}", e))?;
@@ -20,19 +20,15 @@ pub fn render_myini_file(root: &PathBuf, mysql_port: u16) -> Result<PathBuf, Str
 
     // tmp dir must NOT be inside data/ — otherwise mysqld --initialize fails (data must be empty)
     // and runtime init error "Cant get stat of data/tmp" when my.ini points inside data but folder missing.
+    // ponytail: reuse layout_from_exe — single source of truth for root derivation
     let (my_ini_path, data_dir, tmp_dir, fwd): (PathBuf, PathBuf, PathBuf, String) =
         if let Some(exe_path) = mysqld_path_opt.as_ref() {
-            let bin_dir = exe_path.parent().unwrap().to_path_buf();
-            let mysql_root = bin_dir.parent().unwrap().to_path_buf(); // .../bin/mysql
+            let (mysql_root, _bin_root, app_root) =
+                crate::services::layout_from_exe(exe_path.as_path());
             let data = mysql_root.join("data");
             let tmp = mysql_root.join("tmp"); // sibling, not data/tmp!
             let ini = mysql_root.join("my.ini");
-            let root_for_template = mysql_root
-                .parent()
-                .and_then(|p| p.parent())
-                .unwrap_or(&mysql_root)
-                .to_path_buf();
-            let f = root_forward(&root_for_template);
+            let f = root_forward(&app_root);
             (ini, data, tmp, f)
         } else {
             let mysql_root = root.join("bin").join("mysql");
@@ -177,12 +173,8 @@ pub fn start_mysql(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u3
     let my_ini_path = render_myini_file(root, port)?;
     let mysqld_path = resolve_mysql_bin(root)?;
 
-    let mysql_root = mysqld_path
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf();
+    // ponytail: dedup via service_root_from_exe
+    let mysql_root = crate::services::service_root_from_exe(mysqld_path.as_path());
     let data_dir = mysql_root.join("data");
 
     // Initialize if empty (needs tmp sibling existing — handled inside run_initialize)
@@ -299,7 +291,7 @@ pub fn start_mysql(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u3
             break;
         }
 
-        if std::net::TcpStream::connect(format!("127.0.0.1:{}", port)).is_ok() {
+        if is_port_occupied_tcp(port) {
             started = true;
             break;
         }

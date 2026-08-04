@@ -3,41 +3,16 @@ use std::time::Duration;
 
 use crate::conf::{render_httpd, render_phpini, render_phpmyadmin, root_forward};
 use crate::services::{is_pid_alive, kill_pid, read_tail, resolve_apache_bin, ServiceState};
-use crate::utils::port::{is_port_free, suggest_next_free};
-
-fn ensure_dirs(root: &PathBuf) -> Result<(), String> {
-    let rf = root_forward(root);
-    let _ = rf; // ensure root_forward used
-    let dirs = [
-        root.join("bin").join("apache").join("conf"),
-        root.join("bin").join("apache").join("logs"),
-        root.join("bin").join("php").join("tmp"),
-        root.join("bin").join("php").join("logs"),
-        root.join("bin").join("mysql").join("data").join("tmp"),
-    ];
-    // Also try resources/bin variants if primary doesn't exist — but we ensure inside resolved locations?
-    // Simpler: ensure via resolved apache_root / php_root detection if needed.
-    for d in dirs.iter() {
-        if let Err(e) = std::fs::create_dir_all(d) {
-            // Only error if path is expected primary and parent exists-ish, else ignore for now
-            // But keep error for troubleshooting
-            // We'll try best-effort: if root/bin/apache doesn't exist we will later resolve actual location
-            // So don't fail hard here unless it's about php/tmp inside resources/bin fallback
-            let _ = e;
-        }
-    }
-    Ok(())
-}
+use crate::utils::port::{is_port_free, is_port_occupied_tcp, suggest_next_free};
 
 pub fn render_conf(root: &PathBuf, apache_port: u16, mysql_port: u16) -> Result<PathBuf, String> {
     // Resolve real bin first to compute correct ROOT for template (dev vs portable)
     let apache_exe = resolve_apache_bin(root).ok();
 
+    // ponytail: reuse layout_from_exe instead of manual parent chain dupe
     let (apache_root_for_fwd, bin_root_for_fwd): (Option<PathBuf>, Option<PathBuf>) = if let Some(exe) = apache_exe.as_ref() {
-        let bin_dir = exe.parent().unwrap_or(exe.as_path()).to_path_buf();
-        let apache_root = bin_dir.parent().unwrap_or(bin_dir.as_path()).to_path_buf();
-        let bin_root = apache_root.parent().unwrap_or(apache_root.as_path()).to_path_buf();
-        (Some(apache_root), Some(bin_root))
+        let (svc_root, bin_root, _app_root) = crate::services::layout_from_exe(exe.as_path());
+        (Some(svc_root), Some(bin_root))
     } else {
         (None, None)
     };
@@ -80,12 +55,11 @@ pub fn render_conf(root: &PathBuf, apache_port: u16, mysql_port: u16) -> Result<
         PathBuf,
         PathBuf,
         PathBuf,
+    // ponytail: same layout_from_exe — removes 3x parent chain dupe
     ) = if let Some(exe_path) = apache_exe.as_ref() {
-        let bin_dir = exe_path.parent().unwrap_or(exe_path.as_path()).to_path_buf();
-        let apache_root = bin_dir.parent().unwrap_or(bin_dir.as_path()).to_path_buf();
+        let (apache_root, bin_root, _app_root) = crate::services::layout_from_exe(exe_path.as_path());
         let conf_dir = apache_root.join("conf");
         let logs_dir = apache_root.join("logs");
-        let bin_root = apache_root.parent().unwrap_or(apache_root.as_path()).to_path_buf();
         let php_dir = bin_root.join("php");
         let pma_dir = bin_root.join("phpmyadmin");
         (
@@ -145,12 +119,6 @@ pub fn render_conf(root: &PathBuf, apache_port: u16, mysql_port: u16) -> Result<
         // Don't fail — just try to create
         let _ = std::fs::create_dir_all(&www);
     }
-
-    // Also ensure parent resource copy for httpd-vano if running from src-tauri/resources layout:
-    // If we wrote to resources/bin/... that's fine already; if we wrote to root/bin/..., also try to keep resources version in sync?
-    // YAGNI — skip duplication
-
-    ensure_dirs(root)?;
 
     Ok(apache_conf_path)
 }
@@ -289,7 +257,7 @@ pub fn start_apache(
         }
 
         // Also try tcp connect optimistic
-        if std::net::TcpStream::connect(format!("127.0.0.1:{}", port)).is_ok() {
+        if is_port_occupied_tcp(port) {
             started = true;
             break;
         }

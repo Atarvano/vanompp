@@ -1,7 +1,11 @@
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 
 pub fn is_port_free(port: u16) -> bool {
     TcpListener::bind(("127.0.0.1", port)).is_ok()
+}
+
+pub fn is_port_occupied_tcp(port: u16) -> bool {
+    TcpStream::connect(format!("127.0.0.1:{port}")).is_ok()
 }
 
 pub fn suggest_next_free(start: u16) -> u16 {
