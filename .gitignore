@@ -50,3 +50,7 @@ desktop.ini
 
 # Graphify cache
 graphify-out/
+
+# Claude session local
+.superpowers/
+.serena/
