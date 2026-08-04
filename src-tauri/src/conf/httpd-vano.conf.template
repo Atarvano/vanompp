@@ -8,13 +8,14 @@ ServerName localhost:{{APACHE_PORT}}
 DocumentRoot "{{WWW_ROOT}}"
 DirectoryIndex index.php index.html
 
-# Minimal modules required for PHP + directory + alias + auth
+# Minimal modules required for PHP + directory + alias + auth + log
 LoadModule dir_module modules/mod_dir.so
 LoadModule mime_module modules/mod_mime.so
 LoadModule authz_core_module modules/mod_authz_core.so
 LoadModule authz_host_module modules/mod_authz_host.so
 LoadModule alias_module modules/mod_alias.so
 LoadModule rewrite_module modules/mod_rewrite.so
+LoadModule log_config_module modules/mod_log_config.so
 LoadModule php_module "{{ROOT}}/bin/php/php8apache2_4.dll"
 
 <Directory />
