@@ -40,7 +40,7 @@ mod tests {
     #[test]
     fn test_create_db_invalid_name() {
         let root = tmp_root("invalid");
-        let err = create_database_fs(&root, "", 3306).unwrap_err();
+        let err = create_database_fs(&root, "", 59999).unwrap_err();
         assert!(!err.is_empty());
         let _ = fs::remove_dir_all(&root);
     }
@@ -48,8 +48,8 @@ mod tests {
     #[test]
     fn test_create_db_no_mysql_client() {
         let root = tmp_root("noclient");
-        // No mysql.exe → should error with message
-        let err = create_database_fs(&root, "mydb", 3306).unwrap_err();
+        // Use high free port to avoid hitting real mysqld 3306 running in dev
+        let err = create_database_fs(&root, "mydb", 59999).unwrap_err();
         assert!(!err.is_empty());
         let _ = fs::remove_dir_all(&root);
     }

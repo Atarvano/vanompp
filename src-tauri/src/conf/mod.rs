@@ -3,6 +3,7 @@ use std::path::PathBuf;
 pub const HTTPD_TEMPLATE: &str = include_str!("./httpd-vano.conf.template");
 pub const MYINI_TEMPLATE: &str = include_str!("./my.ini.template");
 pub const PHPINI_MINIMAL: &str = include_str!("./php.ini.minimal");
+pub const PMA_TEMPLATE: &str = include_str!("./config.inc.php.template");
 
 /// ROOT = bin parent, WWW_ROOT = actual www folder absolute
 pub fn render_httpd(root_forward: &str, apache_port: u16, www_forward: &str) -> String {
@@ -20,6 +21,16 @@ pub fn render_myini(root_forward: &str, mysql_port: u16) -> String {
 
 pub fn render_phpini(root_forward: &str) -> String {
     PHPINI_MINIMAL.replace("{{ROOT}}", root_forward)
+}
+
+pub fn render_phpmyadmin(root_forward: &str, mysql_port: u16) -> String {
+    // simple blowfish deterministic for dev — 32 chars
+    // in prod we might generate random, but static is okay for local
+    let secret = "vano-local-dev-secret-32chars!!";
+    PMA_TEMPLATE
+        .replace("{{ROOT}}", root_forward)
+        .replace("{{MYSQL_PORT}}", &mysql_port.to_string())
+        .replace("{{BLOWFISH_SECRET}}", secret)
 }
 
 pub fn root_forward(root: &PathBuf) -> String {

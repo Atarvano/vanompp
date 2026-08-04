@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::conf::{render_httpd, render_phpini, root_forward};
+use crate::conf::{render_httpd, render_phpini, render_phpmyadmin, root_forward};
 use crate::services::{is_pid_alive, kill_pid, read_tail, resolve_apache_bin, ServiceState};
 use crate::utils::port::{is_port_free, suggest_next_free};
 
@@ -29,7 +29,7 @@ fn ensure_dirs(root: &PathBuf) -> Result<(), String> {
     Ok(())
 }
 
-pub fn render_conf(root: &PathBuf, apache_port: u16) -> Result<PathBuf, String> {
+pub fn render_conf(root: &PathBuf, apache_port: u16, mysql_port: u16) -> Result<PathBuf, String> {
     // Resolve real bin first to compute correct ROOT for template (dev vs portable)
     let apache_exe = resolve_apache_bin(root).ok();
 
@@ -67,35 +67,45 @@ pub fn render_conf(root: &PathBuf, apache_port: u16) -> Result<PathBuf, String> 
 
     let rendered = render_httpd(&fwd, apache_port, &www_fwd);
     let php_rendered = render_phpini(&fwd);
+    let pma_rendered = render_phpmyadmin(&fwd, mysql_port);
 
     // Resolve real bin dirs (might be resources/bin layout)
     let apache_conf_dir_primary = root.join("bin").join("apache").join("conf");
     let php_dir_primary = root.join("bin").join("php");
 
-    let (apache_conf_path, php_ini_path, apache_logs_dir, php_tmp, php_logs): (PathBuf, PathBuf, PathBuf, PathBuf, PathBuf) =
-        if let Some(exe_path) = apache_exe.as_ref() {
-            let bin_dir = exe_path.parent().unwrap_or(exe_path.as_path()).to_path_buf();
-            let apache_root = bin_dir.parent().unwrap_or(bin_dir.as_path()).to_path_buf();
-            let conf_dir = apache_root.join("conf");
-            let logs_dir = apache_root.join("logs");
-            let bin_root = apache_root.parent().unwrap_or(apache_root.as_path()).to_path_buf();
-            let php_dir = bin_root.join("php");
-            (
-                conf_dir.join("httpd-vano.conf"),
-                php_dir.join("php.ini"),
-                logs_dir,
-                php_dir.join("tmp"),
-                php_dir.join("logs"),
-            )
-        } else {
-            (
-                apache_conf_dir_primary.join("httpd-vano.conf"),
-                php_dir_primary.join("php.ini"),
-                root.join("bin").join("apache").join("logs"),
-                root.join("bin").join("php").join("tmp"),
-                root.join("bin").join("php").join("logs"),
-            )
-        };
+    let (apache_conf_path, php_ini_path, apache_logs_dir, php_tmp, php_logs, phpmyadmin_conf_path): (
+        PathBuf,
+        PathBuf,
+        PathBuf,
+        PathBuf,
+        PathBuf,
+        PathBuf,
+    ) = if let Some(exe_path) = apache_exe.as_ref() {
+        let bin_dir = exe_path.parent().unwrap_or(exe_path.as_path()).to_path_buf();
+        let apache_root = bin_dir.parent().unwrap_or(bin_dir.as_path()).to_path_buf();
+        let conf_dir = apache_root.join("conf");
+        let logs_dir = apache_root.join("logs");
+        let bin_root = apache_root.parent().unwrap_or(apache_root.as_path()).to_path_buf();
+        let php_dir = bin_root.join("php");
+        let pma_dir = bin_root.join("phpmyadmin");
+        (
+            conf_dir.join("httpd-vano.conf"),
+            php_dir.join("php.ini"),
+            logs_dir,
+            php_dir.join("tmp"),
+            php_dir.join("logs"),
+            pma_dir.join("config.inc.php"),
+        )
+    } else {
+        (
+            apache_conf_dir_primary.join("httpd-vano.conf"),
+            php_dir_primary.join("php.ini"),
+            root.join("bin").join("apache").join("logs"),
+            root.join("bin").join("php").join("tmp"),
+            root.join("bin").join("php").join("logs"),
+            root.join("bin").join("phpmyadmin").join("config.inc.php"),
+        )
+    };
 
     // Also ensure alternative dirs exist
     // Ensure parent directories
@@ -118,6 +128,14 @@ pub fn render_conf(root: &PathBuf, apache_port: u16) -> Result<PathBuf, String> 
         .map_err(|e| format!("Gagal tulis httpd-vano.conf: {}", e))?;
     std::fs::write(&php_ini_path, php_rendered)
         .map_err(|e| format!("Gagal tulis php.ini: {}", e))?;
+    // phpmyadmin config — best effort, don't fail if can't write
+    if let Some(parent) = phpmyadmin_conf_path.parent() {
+        if std::fs::create_dir_all(parent).is_ok() {
+            let _ = std::fs::write(&phpmyadmin_conf_path, pma_rendered);
+            // also ensure tmp dir for pma
+            let _ = std::fs::create_dir_all(parent.join("tmp"));
+        }
+    }
 
     // Ensure www exists
     let www = root.join("www");
@@ -138,7 +156,13 @@ pub fn render_conf(root: &PathBuf, apache_port: u16) -> Result<PathBuf, String> 
 }
 
 /// Start Apache, return pid or Err with Indonesian message
-pub fn start_apache(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u32, String> {
+/// mysql_port used for phpMyAdmin config generation (default 3306 if 0 passed)
+pub fn start_apache(
+    state: &ServiceState,
+    root: &PathBuf,
+    port: u16,
+    mysql_port: u16,
+) -> Result<u32, String> {
     // If already running according to state, check if still alive
     if let Ok(map) = state.childs.lock() {
         if let Some(pid) = map.get("apache") {
@@ -156,7 +180,8 @@ pub fn start_apache(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u
         ));
     }
 
-    let conf_path = render_conf(root, port)?;
+    let mp = if mysql_port == 0 { 3306 } else { mysql_port };
+    let conf_path = render_conf(root, port, mp)?;
 
     let httpd_path = resolve_apache_bin(root)?;
 

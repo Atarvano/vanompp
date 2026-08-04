@@ -332,7 +332,9 @@ mod tests {
     #[test]
     fn test_exec_mysql_fails_when_no_client() {
         let root = tmp_root("no_client");
-        let err = exec_mysql_query(&root, "SELECT 1", 3306).unwrap_err();
+        // Use high free port to avoid real mysqld; ancestor walk might still find client binary
+        // but TCP check fails -> error path
+        let err = exec_mysql_query(&root, "SELECT 1", 59999).unwrap_err();
         assert!(!err.is_empty());
         let _ = fs::remove_dir_all(&root);
     }

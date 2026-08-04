@@ -1,0 +1,16 @@
+<?php
+/* Vanompp phpMyAdmin config - generated */
+$cfg['blowfish_secret'] = '{{BLOWFISH_SECRET}}';
+$i = 0;
+$i++;
+$cfg['Servers'][$i]['auth_type'] = 'cookie';
+$cfg['Servers'][$i]['host'] = '127.0.0.1';
+$cfg['Servers'][$i]['port'] = '{{MYSQL_PORT}}';
+$cfg['Servers'][$i]['compress'] = false;
+$cfg['Servers'][$i]['AllowNoPassword'] = true;
+$cfg['Servers'][$i]['auth_type'] = 'cookie';
+/* smk compat: native password */
+$cfg['Servers'][$i]['extension'] = 'mysqli';
+$cfg['TempDir'] = '{{ROOT}}/bin/phpmyadmin/tmp';
+$cfg['UploadDir'] = '';
+$cfg['SaveDir'] = '';

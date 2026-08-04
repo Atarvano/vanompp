@@ -82,7 +82,8 @@ pub fn start_service(
     match n.as_str() {
         "apache" => {
             let p = port.unwrap_or(8080);
-            let pid = apache::start_apache(&state, &root, p)?;
+            // mysql port: try 3306 default for pma config, or if mysql already running get from state? YAGNI 3306.
+            let pid = apache::start_apache(&state, &root, p, 3306)?;
             Ok(format!("Apache ON pid {} port {}", pid, p))
         }
         "mysql" | "mariadb" => {
@@ -184,7 +185,7 @@ pub fn start_all_services(
     let ap = apache_port.unwrap_or(8080);
     let mp = mysql_port.unwrap_or(3306);
 
-    let pid_a = apache::start_apache(&state, &root, ap)?;
+    let pid_a = apache::start_apache(&state, &root, ap, mp)?;
     let pid_m = mysql::start_mysql(&state, &root, mp)?;
 
     Ok(vec![
