@@ -12,6 +12,7 @@
     stopAllServices,
     checkPorts,
     toConflicts,
+    repairMysql,
     type ConflictInfo
   } from '$lib/stores/services'
   import { MSG } from '$lib/utils/messages'
@@ -130,6 +131,17 @@
       dispatch('error', { msg })
     }
   }
+
+  async function handleRepairMysql() {
+    if (!confirm('Reset data MySQL? DB siswa bakal hilang (backup dulu kalau perlu). Lanjut?')) return
+    try {
+      const msg = await repairMysql()
+      dispatch('toast', { msg })
+    } catch (e) {
+      const m = typeof e === 'string' ? e : String(e)
+      dispatch('error', { msg: m })
+    }
+  }
 </script>
 
 <BezelCard highlight={anyRunning}>
@@ -201,10 +213,16 @@
         <p class="mt-2 text-[11px] font-mono text-red-400 bg-red-500/10 ring-1 ring-red-500/20 rounded-[0.6rem] px-2.5 py-1.5 leading-snug break-words">{err}</p>
       {/if}
 
-      {#if err && err.toLowerCase().includes('vc++')}
-        <div class="mt-2 flex gap-2">
-          <button on:click={()=>dispatch('openLogs',{service:'apache'})} class="rounded-full bg-red-500/15 ring-1 ring-red-500/20 px-3 py-1 text-[11px] font-mono text-red-300 hover:bg-red-500/20">Buka Logs</button>
-          <span class="text-[10px] font-mono text-zinc-500 py-1">{MSG.vcRedistTip}</span>
+      {#if err}
+        <div class="mt-2 flex flex-wrap gap-2">
+          {#if err.toLowerCase().includes('vc++')}
+            <button on:click={()=>dispatch('openLogs',{service:'apache'})} class="rounded-full bg-red-500/15 ring-1 ring-red-500/20 px-3 py-1 text-[11px] font-mono text-red-300 hover:bg-red-500/20">Buka Logs</button>
+            <span class="text-[10px] font-mono text-zinc-500 py-1">{MSG.vcRedistTip}</span>
+          {/if}
+          {#if err.toLowerCase().includes('mysql') && (err.toLowerCase().includes('data') || err.toLowerCase().includes('corrupt') || err.toLowerCase().includes('unusable') || err.toLowerCase().includes('mysql_error'))}
+            <button on:click={handleRepairMysql} class="rounded-full bg-amber-500/15 ring-1 ring-amber-500/25 px-3 py-1 text-[11px] font-mono text-amber-300 hover:bg-amber-500/20 active:scale-[0.98] transition-all">Repair MySQL (reset data)</button>
+            <button on:click={()=>dispatch('openLogs',{service:'mysql'})} class="rounded-full bg-white/[0.04] ring-1 ring-white/10 px-3 py-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-200">Buka mysql_error.log</button>
+          {/if}
         </div>
       {/if}
     </div>

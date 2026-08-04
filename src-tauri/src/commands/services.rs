@@ -207,6 +207,28 @@ pub fn stop_all_services(state: State<ServiceState>) -> Result<Vec<String>, Stri
     Ok(msgs)
 }
 
+#[tauri::command]
+pub fn repair_mysql(state: State<ServiceState>) -> Result<String, String> {
+    // Stop first if running
+    let _ = mysql::stop_mysql(&state);
+    let root = resolve_root();
+    // Resolve data dir
+    let mysqld = crate::services::resolve_mysql_bin(&root)?;
+    let mysql_root = mysqld.parent().unwrap().parent().unwrap().to_path_buf();
+    let data_dir = mysql_root.join("data");
+    // Remove corrupt data dir content (keep nothing)
+    if data_dir.exists() {
+        std::fs::remove_dir_all(&data_dir)
+            .map_err(|e| format!("Gagal hapus data MySQL {} 😅 {}", data_dir.display(), e))?;
+    }
+    std::fs::create_dir_all(&data_dir)
+        .map_err(|e| format!("Gagal bikin data dir {}", e))?;
+    Ok(format!(
+        "Data MySQL di {} sudah direset — klik Start MySQL lagi, nanti auto --initialize-insecure. (DB lama hilang, backup dulu kalau perlu).",
+        data_dir.display()
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -35,32 +35,77 @@ pub fn render_myini_file(root: &PathBuf, mysql_port: u16) -> Result<PathBuf, Str
         )
     };
 
-    ensure_mysql_dirs(&data_dir, &tmp_dir)?;
+    // Only ensure data dir exists (no tmp yet!) — tmp inside data makes
+    // mysqld --initialize-insecure fail with "data directory has files"
+    std::fs::create_dir_all(&data_dir).map_err(|e| format!("Gagal bikin data dir mysql: {}", e))?;
 
     std::fs::write(&my_ini_path, rendered).map_err(|e| format!("Gagal tulis my.ini: {}", e))?;
 
     Ok(my_ini_path)
 }
 
-/// Check if data dir is initialized (has mysql subfolder or ibdata)
+/// Check if data dir is initialized — must have mysql system schema.
+/// Old heuristic that returned true for any file (e.g. tmp/) caused
+/// --initialize-insecure to be skipped or to abort, looping init fail.
 pub fn is_data_initialized(data_dir: &PathBuf) -> bool {
     if !data_dir.exists() {
         return false;
     }
-    // Heuristic: presence of mysql folder or ibdata1 or data file
-    data_dir.join("mysql").exists()
+    data_dir.join("mysql").exists() && data_dir.join("mysql").is_dir()
         || data_dir.join("ibdata1").exists()
-        || data_dir.join("ib_buffer_pool").exists()
-        || std::fs::read_dir(data_dir)
-            .map(|mut rd| rd.next().is_some())
-            .unwrap_or(false)
+}
+
+fn is_dir_empty_ignoring_tmp(data_dir: &PathBuf) -> bool {
+    let Ok(rd) = std::fs::read_dir(data_dir) else {
+        return true;
+    };
+    for entry in rd.flatten() {
+        let name = entry.file_name().to_string_lossy().to_lowercase();
+        // ignore our own helper dirs/files
+        if name == "tmp" || name == "logs" || name == "mysql_error.log" || name == "mysql.pid" {
+            continue;
+        }
+        // any other file means not empty
+        return false;
+    }
+    true
 }
 
 fn run_initialize_insecure(mysqld_path: &PathBuf, data_dir: &PathBuf, mysql_root: &PathBuf) -> Result<(), String> {
-    // If already initialized, skip
-    // For dev safety: if data_dir has files > 0 and mysql folder exists, skip
-    if is_data_initialized(data_dir) && data_dir.join("mysql").exists() {
+    // If already initialized with mysql schema, skip
+    if is_data_initialized(data_dir) {
         return Ok(());
+    }
+
+    // If data dir contains only tmp/logs from previous failed init,
+    // clean it so --initialize-insecure can succeed (MYSQL errors if dir not empty).
+    if data_dir.exists() && is_dir_empty_ignoring_tmp(data_dir) {
+        // remove stray tmp/logs/error.log/pid produced by earlier ensure_dirs
+        if let Ok(rd) = std::fs::read_dir(data_dir) {
+            for e in rd.flatten() {
+                let p = e.path();
+                let n = e.file_name().to_string_lossy().to_lowercase();
+                if n == "tmp" || n == "logs" || n == "mysql_error.log" || n == "mysql.pid" {
+                    let _ = if p.is_dir() {
+                        std::fs::remove_dir_all(&p)
+                    } else {
+                        std::fs::remove_file(&p)
+                    };
+                }
+            }
+        }
+        // after cleaning helper files, dir should be truly empty — required by mysqld --initialize
+        // remove dir itself to let mysqld create fresh, or leave empty
+        if is_dir_empty_ignoring_tmp(data_dir) {
+            // recreate empty data dir (mysqld wants empty dir, not necessarily non-existing)
+            let _ = std::fs::create_dir_all(data_dir);
+        }
+    } else if data_dir.exists() && !is_dir_empty_ignoring_tmp(data_dir) {
+        // data dir has real files but no mysql schema — corrupt. Bail with helpful msg.
+        return Err(format!(
+            "Data MySQL corrupt/unusable 😅 Folder {} ada file tapi bukan DB valid. Hapus isi data/ (backup dulu) lalu Start lagi biar auto-init — atau pakai [Repair].",
+            data_dir.display()
+        ));
     }
 
     // Ensure dirs
@@ -128,12 +173,14 @@ pub fn start_mysql(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u3
     let data_dir = mysql_root.join("data");
 
     // Initialize if empty
-    if !is_data_initialized(&data_dir) || !data_dir.join("mysql").exists() {
-        // Attempt init
+    if !is_data_initialized(&data_dir) {
         if let Err(e) = run_initialize_insecure(&mysqld_path, &data_dir, &mysql_root) {
             return Err(e);
         }
     }
+
+    // After init, ensure tmp dir required by my.ini template (tmpdir=.../data/tmp)
+    let _ = std::fs::create_dir_all(data_dir.join("tmp"));
 
     // error log path from template
     let error_log_path = data_dir.join("mysql_error.log");

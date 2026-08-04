@@ -219,6 +219,23 @@ export async function stopAllServices(): Promise<string[]> {
   }
 }
 
+export async function repairMysql(): Promise<string> {
+  loading.update((l) => ({ ...l, mysql: true }))
+  lastError.set('')
+  try {
+    const res = await invoke<string>('repair_mysql')
+    await refreshStatus()
+    return res
+  } catch (e) {
+    const raw = typeof e === 'string' ? e : (e as any)?.toString() || 'Gagal repair MySQL'
+    const friendly = indonesianify(raw)
+    lastError.set(friendly)
+    throw friendly
+  } finally {
+    loading.update((l) => ({ ...l, mysql: false }))
+  }
+}
+
 // helper: detect conflict from PortInfo[] — index-aware: 0=apache,1=mysql.
 // Pure fallback when called outside Svelte context; optionally reads cur ports safely.
 export function toConflicts(portInfos: PortInfo[], curPorts?: { apachePort?: number; mysqlPort?: number }): ConflictInfo[] {
