@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { invoke } from '@tauri-apps/api/core'
   import BezelCard from './BezelCard.svelte'
   import { openExternal } from '$lib/utils/open'
@@ -6,61 +6,56 @@
   import { services } from '$lib/stores/services'
   import { createEventDispatcher } from 'svelte'
   import { MSG } from '$lib/utils/messages'
-
   const dispatch = createEventDispatcher()
-
   export let port = 8080
-
   let copied = false
   let folderLoading = false
   let openErr: string | null = null
   let dbLoading = false
   let dbMsg: string | null = null
   let dbErr: string | null = null
-
   $: projectList = $projects
   $: sel = $selected
   $: apachePort = $services.apachePort ?? port
   $: mysqlPort = $services.mysqlPort ?? 3306
   $: currentProject = projectList.find(p => p.name === sel) ?? null
-  $: currentUrl = currentProject?.url ?? (sel ? `http://localhost:${apachePort}/${sel}` : '')
-  $: hasConn = currentProject?.has_conn ?? false
-  $: dbExists = currentProject?.db_exists ?? false
-  $: dbName = currentProject?.db_name ?? ''
-  $: showCreateDb = hasConn && !dbExists && !!dbName
+  $: currentUrl = currentProject ? `http://localhost:${apachePort}/${currentProject.name}` : ''
+  $: hasConn = !!currentProject?.has_conn
+  $: db_exists = !!currentProject?.db_exists
+  $: db_name = currentProject?.db_name ?? ''
+  $: showCreateDb = hasConn && !db_exists
+  $: has_conn = hasConn
 
-  async function copyUrl() {
+  function copyUrl() {
     if (!currentUrl) return
-    try {
-      await navigator.clipboard.writeText(currentUrl)
-    } catch {
-      const ta = document.createElement('textarea')
-      ta.value = currentUrl
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      ta.remove()
-    }
-    copied = true
-    dispatch('toast', { msg: MSG.copyUrlSuccess, kind: 'info' })
-    setTimeout(() => (copied = false), 1800)
+    navigator.clipboard.writeText(currentUrl).then(() => {
+      copied = true
+      dispatch('toast', { msg: `URL dicopy: ${currentUrl}` })
+      setTimeout(() => (copied = false), 2000)
+    }).catch(() => {
+      dispatch('toast', { msg: 'Gagal copy URL' })
+    })
   }
 
   async function openBrowser() {
-    if (!currentUrl) return
     openErr = null
-    await openExternal(currentUrl)
-    dispatch('toast', { msg: MSG.openBrowserSuccess(currentUrl), kind: 'info' })
+    if (!currentUrl) return
+    try {
+      await openExternal(currentUrl)
+    } catch (e) {
+      openErr = `Gagal buka browser: ${String(e)}`
+    }
   }
 
   async function openFolder() {
-    if (!sel) return
-    folderLoading = true
+    if (!currentProject) return
     openErr = null
+    folderLoading = true
     try {
-      await invoke('open_project_folder', { name: sel })
+      await invoke('open_project_folder', { name: currentProject.name })
+      dispatch('toast', { msg: `Folder ${currentProject.name} dibuka` })
     } catch (e) {
-      const raw = typeof e === 'string' ? e : String(e)
+      const raw = typeof e === 'string' ? e : (e as any)?.toString() || 'Gagal buka folder'
       openErr = MSG.openFolderFail(raw)
     } finally {
       folderLoading = false
@@ -101,63 +96,87 @@
 </script>
 
 <BezelCard highlight={!!sel}>
-  <div class="flex justify-between items-start gap-4">
-    <div class="flex-1 min-w-0">
-      <h2 class="text-[11px] font-mono font-semibold tracking-[0.14em] uppercase text-zinc-500 mb-3">Project • BIG URL anti-bingung</h2>
-      <div class="flex items-center gap-2 mb-4 flex-wrap">
-        <select bind:value={$selected} class="bg-zinc-800 ring-1 ring-white/10 rounded-full px-4 py-2 text-sm text-zinc-200 focus:outline-none focus:ring-volt/50 min-w-[180px]">
-          <option value="" disabled>Pilih project...</option>
-          {#each projectList as p}
-            <option value={p.name}>{p.name}</option>
-          {/each}
-        </select>
-        {#if sel}<span class="inline-flex w-5 h-5 items-center justify-center rounded-full bg-volt text-black text-[10px] font-bold">✓</span>{/if}
-        {#if currentProject}
-          <div class="flex gap-1.5 ml-1">
-            {#if currentProject.has_index}<span class="text-[10px] font-mono bg-white/[0.06] ring-1 ring-white/10 px-2 py-0.5 rounded-full text-zinc-400">index.php</span>{/if}
-            {#if currentProject.has_conn}<span class="text-[10px] font-mono bg-white/[0.06] ring-1 ring-white/10 px-2 py-0.5 rounded-full text-zinc-400">conn.php</span>{/if}
-            {#if currentProject.has_gitignore}<span class="text-[10px] font-mono bg-white/[0.06] ring-1 ring-white/10 px-2 py-0.5 rounded-full text-zinc-400">.gitignore</span>{/if}
-            {#if currentProject.db_exists}<span class="text-[10px] font-mono bg-volt/20 ring-1 ring-volt/30 px-2 py-0.5 rounded-full text-volt">DB ✓ {currentProject.db_name}</span>{/if}
-            {#if showCreateDb}<span class="text-[10px] font-mono bg-amber-500/20 ring-1 ring-amber-500/30 px-2 py-0.5 rounded-full text-amber-300">DB belum ada</span>{/if}
-          </div>
-        {/if}
-      </div>
-      {#if currentUrl}
-        <div class="group">
-          <a href={currentUrl} target="_blank" rel="noopener" class="font-mono text-[15px] md:text-[18px] font-medium tracking-tight text-volt underline underline-offset-4 decoration-volt/30 hover:decoration-volt break-all leading-snug">{currentUrl}</a>
-          <div class="mt-3 flex gap-2 flex-wrap">
-            <button on:click={copyUrl} class="rounded-full bg-white/[0.06] ring-1 ring-white/10 px-4 py-2 text-xs font-mono text-zinc-300 hover:bg-white/[0.10] active:scale-[0.98] transition-all flex items-center gap-1.5">
-              {copied ? 'Copied!' : 'Copy URL'}
-              {#if copied}<span class="w-2 h-2 bg-volt rounded-full"></span>{/if}
-            </button>
-            <button on:click={openBrowser} class="rounded-full bg-volt text-black px-4 py-2 text-xs font-semibold flex items-center gap-1.5 active:scale-[0.98] transition-transform">Buka di Browser <span class="w-5 h-5 bg-black/10 rounded-full flex items-center justify-center text-[10px]">↗</span></button>
-            <button on:click={openFolder} disabled={folderLoading} class="rounded-full bg-white/[0.06] ring-1 ring-white/10 px-4 py-2 text-xs font-mono text-zinc-300 hover:bg-white/[0.10] active:scale-[0.98] transition-all flex items-center gap-1.5 disabled:opacity-50">
-              {folderLoading ? 'Buka...' : 'Buka Folder'}
-            </button>
-          </div>
-          {#if hasConn}
-            <div class="mt-3 flex gap-2 flex-wrap items-center">
-              {#if showCreateDb}
-                <button on:click={handleCreateDb} disabled={dbLoading} class="rounded-full bg-amber-400 text-black px-4 py-2 text-xs font-semibold flex items-center gap-1.5 active:scale-[0.98] transition-all disabled:opacity-60">
-                  {#if dbLoading}
-                    <span class="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin"></span> Bikin DB {dbName}...
-                  {:else}
-                    [Create DB] {dbName}
-                  {/if}
-                </button>
-              {/if}
-              <button on:click={openPhpMyAdmin} class="rounded-full bg-white/[0.06] ring-1 ring-white/10 px-4 py-2 text-xs font-mono text-zinc-300 hover:bg-white/[0.10] active:scale-[0.98] transition-all">
-                [Open phpMyAdmin]
-              </button>
-            </div>
-          {/if}
-          {#if openErr}<p class="mt-2 text-[11px] font-mono text-red-400">{openErr}</p>{/if}
-          {#if dbErr}<p class="mt-2 text-[11px] font-mono text-red-400">{dbErr}</p>{/if}
-          {#if dbMsg}<p class="mt-2 text-[11px] font-mono text-volt">{dbMsg}</p>{/if}
+  <div class="space-y-4">
+    <div class="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">Select Project</div>
+    <select
+      class="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-300 focus:ring-2 focus:ring-[#E9FF70]/50"
+      bind:value={$selected}
+    >
+      <option value="">— pilih project —</option>
+      {#each projectList as p}
+        <option value={p.name}>{p.name}</option>
+      {/each}
+    </select>
+    {#if currentProject}
+      <button
+        type="button"
+        class="w-full rounded-[16px] border border-amber-100 bg-[#FEFCE8] p-6 md:p-8 text-center cursor-pointer hover:bg-[#fef9c3]/60 transition-colors"
+        on:click={copyUrl}
+        title="Klik untuk copy URL"
+      >
+        <span class="font-mono text-[18px] md:text-[20px] font-bold tracking-tight text-zinc-900 break-all block">
+          {currentUrl}
+        </span>
+      </button>
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <button
+          class="inline-flex items-center gap-1.5 text-[12px] text-zinc-600 hover:text-zinc-900 transition-colors"
+          on:click={openFolder}
+          disabled={folderLoading}
+        >
+          📂 {folderLoading ? 'Buka...' : 'Buka Folder'}
+        </button>
+        <div class="flex items-center gap-2">
+          <button
+            class="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-50"
+            on:click={openBrowser}
+          >
+            Buka ↗
+          </button>
+          <button
+            class="inline-flex items-center gap-1 rounded-full bg-black px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-zinc-800 active:scale-[0.98] transition-all disabled:opacity-50"
+            on:click={copyUrl}
+          >
+            {copied ? 'Copied!' : 'Copy URL'}
+          </button>
         </div>
-      {:else}
-        <p class="font-mono text-xs text-zinc-600">Pilih project dulu biar URL gede muncul di sini.</p>
+      </div>
+
+      {#if has_conn}
+        <div class="flex items-center gap-2 flex-wrap pt-2 border-t border-zinc-100">
+          <button
+            class="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-[12px] text-zinc-700 hover:bg-zinc-50 transition-colors"
+            on:click={openPhpMyAdmin}
+          >
+            phpMyAdmin ↗
+          </button>
+          {#if showCreateDb}
+            <button
+              on:click={handleCreateDb}
+              disabled={dbLoading}
+              class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 text-[12px] font-medium text-zinc-900 hover:bg-amber-200 transition-colors disabled:opacity-60"
+            >
+              {#if dbLoading}
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent"></span> Bikin DB {db_name || (currentProject?.name.replace(/-/g, '_'))}...
+              {:else}
+                + Create DB {db_name || (currentProject?.name.replace(/-/g, '_'))}
+              {/if}
+            </button>
+          {:else if db_exists}
+            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">DB {db_name} ✓</span>
+          {/if}
+        </div>
       {/if}
-    </div>
+
+      {#if openErr}
+        <p class="text-[11px] font-mono text-red-600">{openErr}</p>
+      {/if}
+      {#if dbMsg}
+        <p class="text-[11px] font-mono text-emerald-700">{dbMsg}</p>
+      {/if}
+      {#if dbErr}
+        <p class="text-[11px] font-mono text-red-600">{dbErr}</p>
+      {/if}
+    {/if}
   </div>
 </BezelCard>
