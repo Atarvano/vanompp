@@ -46,13 +46,6 @@ Apache, MySQL, PHP 8.3 + phpMyAdmin udah included (Windows x64).
 - **Tailwind CSS** — styling
 - **Tauri + Rust** — native app portable
 
-## Files
-
-```
-Vanompp_1.2.0_x64-setup.exe 149 MB
-Vanompp_1.2.0_x64_en-US.msi 289 MB
-```
-
 ## Dev
 
 ```bash
