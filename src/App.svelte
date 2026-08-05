@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import { get } from 'svelte/store'
   import ServiceCard from './lib/components/ServiceCard.svelte'
@@ -9,7 +9,7 @@
   import PortConflictModal from './lib/components/PortConflictModal.svelte'
   import LogViewer from './lib/components/LogViewer.svelte'
   import { projects, refreshProjects } from './lib/stores/projects'
-  import { services, refreshStatus, startService, type ConflictInfo } from './lib/stores/services'
+  import { services, refreshStatus, startService, type ConflictInfo, loadPersistedFromRust, setPersistedPort, DEFAULT_APACHE_PORT, DEFAULT_MYSQL_PORT } from './lib/stores/services'
   import { MSG } from './lib/utils/messages'
 
   type ToastItem = { id: number; msg: string; kind?: 'info' | 'error' }
@@ -31,11 +31,17 @@
   $: apachePort = $services.apachePort
 
   onMount(async () => {
+    // v1.1: load persisted ports from Rust toml + localStorage before first status
+    try { await loadPersistedFromRust() } catch {}
     await Promise.all([refreshStatus(), refreshProjects()])
-    pollTimer = setInterval(() => { refreshStatus() }, POLL_MS)
+    pollTimer = setInterval(() => {
+      refreshStatus().catch(() => {})
+    }, POLL_MS)
   })
 
-  onDestroy(() => { if (pollTimer) clearInterval(pollTimer) })
+  onDestroy(() => {
+    if (pollTimer) clearInterval(pollTimer)
+  })
 
   function addToast(msg: string, kind: 'info' | 'error' = 'info') {
     const id = nextToastId++
@@ -86,71 +92,68 @@
   }
 
   async function handleUseSuggest(e: CustomEvent) {
-    const c = e.detail as ConflictInfo
+    const c = e.detail as ConflictInfo & { name: 'apache' | 'mysql'; suggest: number }
+    // v1.1 Q4 Y: Tetap pakai {suggest} = Pakai & Ingat forever
+    try {
+      await setPersistedPort(c.name, c.suggest)
+    } catch {}
     if (c.name === 'apache') services.update((s) => ({ ...s, apachePort: c.suggest }))
     else services.update((s) => ({ ...s, mysqlPort: c.suggest }))
     modalOpen = false
-    addToast(`Coba pakai port ${c.suggest} buat ${c.name.toUpperCase()}...`)
+    addToast(`Tetap pakai ${c.suggest} — Ingat terus ya`)
     try {
       await startService(c.name, c.suggest)
-      addToast(`${c.name.toUpperCase()} nyala di port ${c.suggest} 🎉`)
+      addToast(`${c.name.toUpperCase()} nyala di port ${c.suggest} 🎉 — Ingat terus`)
       if (c.name === 'apache') await refreshProjects(c.suggest)
       await refreshStatus()
     } catch (err) {
       const msg = typeof err === 'string' ? err : String(err)
-      modalConflicts = [c]
+      addToast(msg, 'error')
       modalError = msg
       modalOpen = true
     }
   }
 
-  function handleModalClose() { modalOpen = false }
-
-  async function handleOpenLog() {
-    logService = (modalConflicts[0]?.name as any) ?? 'apache'
-    logOpen = true
+  function handleModalClose() {
     modalOpen = false
+    modalError = ''
   }
 
-  let lastApachePort = 8080
-  $: {
-    const curPort = $services.apachePort
-    if (curPort !== lastApachePort) {
-      lastApachePort = curPort
-      refreshProjects(curPort)
-    }
+  function handleModalOpenLog() {
+    modalOpen = false
+    logService = 'apache'
+    logOpen = true
   }
 </script>
 
-<div class="min-h-[100dvh] bg-zinc-950 text-zinc-100 px-4 md:px-8 py-8 selection:bg-volt selection:text-black">
-  <header class="max-w-[880px] mx-auto flex justify-between items-center mb-10">
-<div class="flex items-center gap-2.5">
-  <div class="w-8 h-8 rounded-[0.65rem] bg-zinc-900 ring-1 ring-white/10 flex items-center justify-center relative">
-    <span class="font-mono font-bold text-[13px] tracking-tight text-white">V/</span>
-    <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-volt rounded-full ring-2 ring-zinc-900"></span>
-  </div>
-  <span class="font-sans text-[15px] font-bold tracking-[-0.02em] text-white lowercase">vanompp</span>
-</div>
-    <div class="flex items-center gap-3">
-      <span class="font-mono text-[10px] tracking-[0.08em] uppercase text-zinc-500">v0.1.0 • Windows portable</span>
-      <button
-        on:click={()=>{ logService='apache'; logOpen=true }}
-        class="rounded-full bg-white/[0.06] ring-1 ring-white/10 px-3 py-1.5 text-[11px] font-mono text-zinc-400 hover:text-white hover:bg-white/[0.10] transition-all"
-      >Logs</button>
+<div class="min-h-screen bg-[#0a0a0a] text-zinc-100 selection:bg-volt selection:text-black">
+  <div class="mx-auto max-w-[980px] px-6 md:px-8 py-10 md:py-14">
+    <header class="mb-10 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full bg-white grid place-items-center text-black font-bold text-[13px]">V</div>
+        <div>
+          <h1 class="text-[16px] font-semibold tracking-tight leading-none">Vanompp</h1>
+          <p class="text-[11px] font-mono text-zinc-500 mt-1">Apache + MySQL portable — anti-bingung SMK</p>
+        </div>
+      </div>
+      <div class="text-[10px] font-mono text-zinc-600">v0.1.0</div>
+    </header>
+
+    <div class="space-y-6">
+      <ServiceCard on:conflict={handleServiceConflict} on:error={handleServiceError} on:toast={handleServiceToast} on:openLogs={handleOpenLogViewer} />
+
+      <div>
+        <h2 class="text-[11px] font-mono font-semibold tracking-[0.14em] uppercase text-zinc-500 mb-3">Projects — www/</h2>
+        {#if isEmpty}
+          <EmptyState on:cta={handleEmptyCta} />
+        {:else}
+          <ProjectCard on:toast={handleProjectToast} />
+        {/if}
+
+        <CreateCard on:created={handleCreated} />
+      </div>
     </div>
-  </header>
-
-  <main class="max-w-[880px] mx-auto flex flex-col gap-6">
-    <ServiceCard on:conflict={handleServiceConflict} on:error={handleServiceError} on:toast={handleServiceToast} on:openLogs={handleOpenLogViewer} />
-
-    {#if isEmpty}
-      <EmptyState on:cta={handleEmptyCta} />
-    {:else}
-      <ProjectCard port={apachePort} on:toast={handleProjectToast} />
-    {/if}
-
-    <CreateCard on:created={handleCreated} />
-  </main>
+  </div>
 
   <Toast bind:toasts />
 
@@ -160,12 +163,8 @@
     errorMsg={modalError}
     on:close={handleModalClose}
     on:useSuggest={handleUseSuggest}
-    on:openLog={handleOpenLog}
+    on:openLog={handleModalOpenLog}
   />
 
-  <LogViewer open={logOpen} service={logService} on:close={()=>logOpen=false} on:toast={handleProjectToast} />
+  <LogViewer bind:open={logOpen} service={logService} on:close={() => (logOpen = false)} />
 </div>
-
-<style>
-  :global(html) { background: #09090b; }
-</style>

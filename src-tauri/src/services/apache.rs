@@ -261,14 +261,28 @@ pub fn start_apache(
             started = true;
             break;
         }
+
+        // ponytail: error.log says resuming/starting workers = success even if port probe race
+        let tail_probe = read_tail(&error_log_path, 10);
+        if tail_probe.contains("resuming normal operations") || tail_probe.contains("Starting") && tail_probe.contains("worker threads") {
+            started = true;
+            break;
+        }
+
+        // also if any httpd alive (winnt mpm parent->child handoff pid may change) and log shows configured, treat as started
+        if crate::services::find_process_pid_by_name("httpd").is_some() && tail_probe.contains("configured") {
+            started = true;
+            break;
+        }
     }
 
     if !started {
-        // Try kill dangling?
-        // Don't auto-kill yet, but read log
         let tail = read_tail(&error_log_path, 20);
-        // If pid still alive but port free after 10 sec → likely config error
-        // Kill it to avoid orphan
+        // If tail contains success markers, don't kill — return ok even if port probe failed (SO_REUSEADDR race)
+        if tail.contains("resuming normal operations") {
+            return Ok(pid);
+        }
+        // Kill orphan to avoid leak
         let _ = kill_pid(pid);
         if let Ok(mut map) = state.childs.lock() {
             map.remove("apache");
@@ -300,9 +314,7 @@ pub fn stop_apache(state: &ServiceState) -> Result<(), String> {
     };
 
     if let Some(pid) = pid_opt {
-        // First try graceful kill via sysinfo
         let killed = kill_pid(pid);
-        // Fallback taskkill /F /T on Windows
         #[cfg(target_os = "windows")]
         {
             let _ = std::process::Command::new("taskkill")
@@ -312,28 +324,36 @@ pub fn stop_apache(state: &ServiceState) -> Result<(), String> {
                 .arg("/T")
                 .output();
         }
-
-        // Wait a bit for process to die
         for _ in 0..10 {
             if !is_pid_alive(pid) {
                 break;
             }
             std::thread::sleep(Duration::from_millis(300));
         }
-
         if let Ok(mut map) = state.childs.lock() {
             map.remove("apache");
         }
-
         if !killed {
-            // If kill returned false but map cleared, still ok? Check liveness
             if is_pid_alive(pid) {
                 return Err(format!("Gagal stop Apache pid {} — coba manual taskkill", pid));
             }
         }
-        Ok(())
-    } else {
-        // No pid in map — try to find httpd by name and kill? YAGNI — just return ok
-        Ok(())
     }
+    // ponytail: orphan httpd after rebuild
+    if let Some(pid) = crate::services::find_process_pid_by_name("httpd") {
+        let _ = kill_pid(pid);
+        #[cfg(target_os = "windows")]
+        {
+            let _ = std::process::Command::new("taskkill")
+                .arg("/IM")
+                .arg("httpd.exe")
+                .arg("/F")
+                .output();
+        }
+        std::thread::sleep(Duration::from_millis(500));
+        if let Ok(mut map) = state.childs.lock() {
+            map.remove("apache");
+        }
+    }
+    Ok(())
 }

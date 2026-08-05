@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./jsconfig.json",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev --no-watch",
+    "tauri:dev:watch": "tauri dev"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

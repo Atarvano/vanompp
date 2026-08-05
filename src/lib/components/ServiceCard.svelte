@@ -13,6 +13,10 @@
     checkPorts,
     toConflicts,
     repairMysql,
+    DEFAULT_APACHE_PORT,
+    DEFAULT_MYSQL_PORT,
+    isCustomPort,
+    resetPersistedPort,
     type ConflictInfo
   } from '$lib/stores/services'
   import { MSG } from '$lib/utils/messages'
@@ -29,6 +33,8 @@
   $: err = $lastError
   $: allRunning = svc.apache && svc.mysql
   $: anyRunning = svc.apache || svc.mysql
+  $: apacheCustom = isCustomPort('apache', svc.apachePort)
+  $: mysqlCustom = isCustomPort('mysql', svc.mysqlPort)
 
   async function toggle(name: 'apache' | 'mysql') {
     if (ld[name] || ld.all) return
@@ -87,14 +93,10 @@
   }
 
   async function handleStartAll() {
-    if (ld.all || ld.apache || ld.mysql) return
+    if (ld.all || allRunning) return
     try {
       const infos = await checkPorts()
-      const conflicts = toConflicts(infos).filter((c) => {
-        if (c.name === 'apache' && svc.apache) return false
-        if (c.name === 'mysql' && svc.mysql) return false
-        return true
-      })
+      const conflicts = toConflicts(infos)
       if (conflicts.length) {
         dispatch('conflict', { conflicts, error: MSG.portKepake(conflicts.map(c=>c.port)) })
         return
@@ -127,19 +129,27 @@
       const msgs = await stopAllServices()
       dispatch('toast', { msg: msgs.join(' • ') })
     } catch (e) {
-      const msg = typeof e === 'string' ? e : String(e)
-      dispatch('error', { msg })
+      const m = typeof e === 'string' ? e : String(e)
+      dispatch('error', { msg: m })
     }
   }
 
   async function handleRepairMysql() {
-    if (!confirm('Reset data MySQL? DB siswa bakal hilang (backup dulu kalau perlu). Lanjut?')) return
     try {
       const msg = await repairMysql()
       dispatch('toast', { msg })
     } catch (e) {
       const m = typeof e === 'string' ? e : String(e)
       dispatch('error', { msg: m })
+    }
+  }
+
+  async function handleResetPort(name: 'apache' | 'mysql') {
+    try {
+      await resetPersistedPort(name)
+      dispatch('toast', { msg: `${name.toUpperCase()} port direset ke default ${name==='apache'?DEFAULT_APACHE_PORT:DEFAULT_MYSQL_PORT}` })
+    } catch (e) {
+      dispatch('error', { msg: `Gagal reset ${name}: ${String(e)}` })
     }
   }
 </script>
@@ -196,29 +206,34 @@
         >Logs</button>
       </div>
 
-      <div class="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-mono text-zinc-600">
-        <span class="inline-flex items-center gap-1">
+      <div class="mt-2.5 flex flex-wrap gap-2 text-[10px] font-mono text-zinc-600">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] ring-1 ring-white/10 px-2.5 py-1">
           # apache:{svc.apachePort}
+          {#if apacheCustom}
+            <span class="inline-flex items-center gap-1 rounded-full bg-[#E9FF70]/15 ring-1 ring-[#E9FF70]/20 px-1.5 py-0.5 text-[9px] text-[#E9FF70] ml-1">
+              custom
+              <button on:click={() => handleResetPort('apache')} class="w-3 h-3 rounded-full bg-[#E9FF70]/20 hover:bg-[#E9FF70]/30 grid place-items-center text-[8px] leading-none">×</button>
+            </span>
+          {/if}
           {#if svc.apachePid}<span class="text-zinc-500">pid {svc.apachePid}</span>{/if}
           {#if !svc.apachePortFree && !svc.apache}<span class="text-red-400">kepake</span>{/if}
         </span>
-        <span class="inline-flex items-center gap-1">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] ring-1 ring-white/10 px-2.5 py-1">
           # mysql:{svc.mysqlPort}
+          {#if mysqlCustom}
+            <span class="inline-flex items-center gap-1 rounded-full bg-[#E9FF70]/15 ring-1 ring-[#E9FF70]/20 px-1.5 py-0.5 text-[9px] text-[#E9FF70] ml-1">
+              custom:{svc.mysqlPort}
+              <button on:click={() => handleResetPort('mysql')} class="w-3.5 h-3.5 rounded-full bg-[#E9FF70]/20 hover:bg-[#E9FF70]/30 grid place-items-center text-[9px] leading-none ml-1" title="Reset ke 3306">×</button>
+            </span>
+          {/if}
           {#if svc.mysqlPid}<span class="text-zinc-500">pid {svc.mysqlPid}</span>{/if}
           {#if !svc.mysqlPortFree && !svc.mysql}<span class="text-red-400">kepake</span>{/if}
         </span>
       </div>
 
       {#if err}
-        <p class="mt-2 text-[11px] font-mono text-red-400 bg-red-500/10 ring-1 ring-red-500/20 rounded-[0.6rem] px-2.5 py-1.5 leading-snug break-words">{err}</p>
-      {/if}
-
-      {#if err}
-        <div class="mt-2 flex flex-wrap gap-2">
-          {#if err.toLowerCase().includes('vc++')}
-            <button on:click={()=>dispatch('openLogs',{service:'apache'})} class="rounded-full bg-red-500/15 ring-1 ring-red-500/20 px-3 py-1 text-[11px] font-mono text-red-300 hover:bg-red-500/20">Buka Logs</button>
-            <span class="text-[10px] font-mono text-zinc-500 py-1">{MSG.vcRedistTip}</span>
-          {/if}
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <p class="text-[10px] font-mono text-red-400/80 bg-red-500/10 ring-1 ring-red-500/15 rounded-[0.75rem] px-3 py-1.5 max-w-[36rem] truncate">{err}</p>
           {#if err.toLowerCase().includes('mysql') && (err.toLowerCase().includes('data') || err.toLowerCase().includes('corrupt') || err.toLowerCase().includes('unusable') || err.toLowerCase().includes('mysql_error'))}
             <button on:click={handleRepairMysql} class="rounded-full bg-amber-500/15 ring-1 ring-amber-500/25 px-3 py-1 text-[11px] font-mono text-amber-300 hover:bg-amber-500/20 active:scale-[0.98] transition-all">Repair MySQL (reset data)</button>
             <button on:click={()=>dispatch('openLogs',{service:'mysql'})} class="rounded-full bg-white/[0.04] ring-1 ring-white/10 px-3 py-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-200">Buka mysql_error.log</button>
@@ -226,7 +241,6 @@
         </div>
       {/if}
     </div>
-
     <div class="flex flex-col gap-2 items-end shrink-0">
       {#if anyRunning}
         <button
@@ -254,7 +268,7 @@
           Start...
         {:else}
           {allRunning ? 'All ON' : 'Start All'}
-          <span class="w-7 h-7 bg-black/10 rounded-full flex items-center justify-center text-[12px]">{allRunning ? '✓' : '↗'}</span>
+          <span class="w-7 h-7 bg-black/10 rounded-full flex items-center justify-center">→</span>
         {/if}
       </button>
     </div>

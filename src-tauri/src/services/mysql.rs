@@ -48,14 +48,24 @@ pub fn render_myini_file(root: &PathBuf, mysql_port: u16) -> Result<PathBuf, Str
 }
 
 /// Check if data dir is initialized — must have mysql system schema.
-/// Old heuristic that returned true for any file (e.g. tmp/) caused
-/// --initialize-insecure to be skipped or to abort, looping init fail.
+/// ponytail: previous OR ibdata1 existed caused half-init bug (ibdata1 leftover but no mysql/)
+///
+///   Failed to find valid data directory
+///   Data Dictionary initialization failed
+/// Root cause: rebuild loop killed mysqld mid --initialize, left ibdata1/auto.cnf without mysql/ folder.
+/// Fix: require mysql/ folder, not just ibdata1.
 pub fn is_data_initialized(data_dir: &PathBuf) -> bool {
     if !data_dir.exists() {
         return false;
     }
-    data_dir.join("mysql").exists() && data_dir.join("mysql").is_dir()
-        || data_dir.join("ibdata1").exists()
+    data_dir.join("mysql").is_dir() && data_dir.join("ibdata1").exists()
+}
+
+pub fn is_half_initialized(data_dir: &PathBuf) -> bool {
+    if !data_dir.exists() { return false; }
+    let has_mysql = data_dir.join("mysql").is_dir();
+    let has_ib = data_dir.join("ibdata1").exists() || data_dir.join("auto.cnf").exists();
+    !has_mysql && has_ib
 }
 
 fn is_dir_empty_ignoring_tmp(data_dir: &PathBuf) -> bool {
@@ -104,11 +114,17 @@ fn run_initialize_insecure(mysqld_path: &PathBuf, data_dir: &PathBuf, mysql_root
             let _ = std::fs::create_dir_all(data_dir);
         }
     } else if data_dir.exists() && !is_dir_empty_ignoring_tmp(data_dir) {
-        // data dir has real files but no mysql schema — corrupt. Bail with helpful msg.
-        return Err(format!(
-            "Data MySQL corrupt/unusable 😅 Folder {} ada file tapi bukan DB valid. Hapus isi data/ (backup dulu) lalu Start lagi biar auto-init — atau pakai [Repair].",
-            data_dir.display()
-        ));
+        // ponytail: half-init from killed watcher rebuild (ibdata1 but no mysql/) — auto-clean + reinit, not error
+        if is_half_initialized(data_dir) {
+            // user saw "Failed to find valid data directory" loop — nuke data dir content
+            let _ = std::fs::remove_dir_all(data_dir);
+            let _ = std::fs::create_dir_all(data_dir);
+        } else {
+            return Err(format!(
+                "Data MySQL corrupt/unusable 😅 Folder {} ada file tapi bukan DB valid. Hapus isi data/ (backup dulu) lalu Start lagi biar auto-init — atau pakai [Repair].",
+                data_dir.display()
+            ));
+        }
     }
 
     // Ensure data empty + ensure tmp sibling exists BEFORE init (my.ini tmpdir points to it)
@@ -180,6 +196,8 @@ pub fn start_mysql(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u3
     }
 
     // After init, ensure tmp sibling required by my.ini template (tmpdir=.../bin/mysql/tmp)
+    // Also auto-recover half-init: if start poll fails with "Failed to find valid data directory"
+    // try clean + reinit once.
     let tmp_dir = mysql_root.join("tmp");
     let _ = std::fs::create_dir_all(&tmp_dir);
     // also ensure data dir still exists (for log file)
@@ -273,6 +291,18 @@ pub fn start_mysql(state: &ServiceState, root: &PathBuf, port: u16) -> Result<u3
                     "MySQL gagal start 😅 ibdata1 must be writable — file dikunci mysqld lama/antivirus.\nCoba: 1) Tutup semua mysqld di Task Manager, 2) Klik [Repair MySQL] reset data, 3) Exclude folder Vanompp di antivirus.\nLog:\n{}",
                     tail
                 ));
+            }
+            // ponytail: auto-recover half-init (watcher killed mid-init)
+            // user saw: Failed to find valid data directory + Data Dictionary initialization failed
+            if lower.contains("failed to find valid data directory") || lower.contains("data dictionary initialization failed") {
+                if is_half_initialized(&data_dir) || !data_dir.join("mysql").is_dir() {
+                    let _ = std::fs::remove_dir_all(&data_dir);
+                    let _ = std::fs::create_dir_all(&data_dir);
+                    // reinit and retry once
+                    if run_initialize_insecure(&mysqld_path, &data_dir, &mysql_root).is_ok() {
+                        return start_mysql(state, root, port);
+                    }
+                }
             }
             if tail.is_empty() {
                 return Err("MySQL gagal start 😅 Cek mysql_error.log — mysqld keluar tanpa log".to_string());
@@ -384,8 +414,22 @@ pub fn stop_mysql(state: &ServiceState) -> Result<(), String> {
         if is_pid_alive(pid) {
             return Err(format!("Gagal stop MySQL pid {} — coba taskkill manual", pid));
         }
-        Ok(())
-    } else {
-        Ok(())
     }
+    // ponytail: map empty (after rebuild) but orphan mysqld still alive -> brute force kill + clear
+    if let Some(pid) = crate::services::find_process_pid_by_name("mysqld") {
+        let _ = kill_pid(pid);
+        #[cfg(target_os = "windows")]
+        {
+            let _ = std::process::Command::new("taskkill")
+                .arg("/IM")
+                .arg("mysqld.exe")
+                .arg("/F")
+                .output();
+        }
+        std::thread::sleep(Duration::from_millis(500));
+        if let Ok(mut map) = state.childs.lock() {
+            map.remove("mysql");
+        }
+    }
+    Ok(())
 }

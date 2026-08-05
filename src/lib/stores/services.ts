@@ -1,6 +1,13 @@
 import { writable, derived, get } from 'svelte/store'
 import { invoke } from '@tauri-apps/api/core'
 
+// ---- Persisted port constants (per spec v1.1) ----
+export const DEFAULT_APACHE_PORT = 8080
+export const DEFAULT_MYSQL_PORT = 3306
+export const STORAGE_KEY = 'vanompp_ports'
+export const STORAGE_KEY_LEGACY = 'vanompp:ports'
+export type PersistedFile = { apachePort?: number; mysqlPort?: number }
+
 // ---- Types from Rust ----
 export type ServiceStatus = {
   name: string
@@ -22,7 +29,7 @@ export type ConflictInfo = {
   suggest: number
 }
 
-// ---- App-facing composite state (keeps old mock compat but real data) ----
+// ---- App-facing composite state ----
 export type ServicesState = {
   apache: boolean
   mysql: boolean
@@ -37,8 +44,8 @@ export type ServicesState = {
 export const services = writable<ServicesState>({
   apache: false,
   mysql: false,
-  apachePort: 8080,
-  mysqlPort: 3306,
+  apachePort: DEFAULT_APACHE_PORT,
+  mysqlPort: DEFAULT_MYSQL_PORT,
   apachePid: null,
   mysqlPid: null,
   apachePortFree: true,
@@ -53,14 +60,113 @@ export const loading = writable<{ apache: boolean; mysql: boolean; all: boolean 
 
 export const lastError = writable<string>('')
 
-// derived for quick checks
 export const allRunning = derived(services, ($s) => $s.apache && $s.mysql)
 export const anyRunning = derived(services, ($s) => $s.apache || $s.mysql)
 
+// ---- Persisted helpers (hybrid: toml disk truth + localStorage optimistic) ----
+export function loadPersisted(): PersistedFile {
+  try {
+    if (typeof localStorage === 'undefined') return {}
+    let raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) raw = localStorage.getItem(STORAGE_KEY_LEGACY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as PersistedFile
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function savePersisted(p: PersistedFile) {
+  try {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(p))
+  } catch {}
+}
+
+export function isCustomPort(name: 'apache' | 'mysql', port: number): boolean {
+  if (name === 'apache') return port !== DEFAULT_APACHE_PORT
+  return port !== DEFAULT_MYSQL_PORT
+}
+
+export function getEffectivePorts(): { apache: number; mysql: number } {
+  const ls = loadPersisted()
+  return {
+    apache: ls.apachePort ?? DEFAULT_APACHE_PORT,
+    mysql: ls.mysqlPort ?? DEFAULT_MYSQL_PORT
+  }
+}
+
+export async function loadPersistedFromRust(): Promise<PersistedFile> {
+  try {
+    const [apache, mysql] = await invoke<[number | null, number | null]>('get_persisted_ports')
+    const res: PersistedFile = {}
+    if (apache != null) res.apachePort = apache
+    if (mysql != null) res.mysqlPort = mysql
+    const cur = loadPersisted()
+    if (res.apachePort != null) cur.apachePort = res.apachePort
+    if (res.mysqlPort != null) cur.mysqlPort = res.mysqlPort
+    if (res.apachePort != null || res.mysqlPort != null) savePersisted(cur)
+    if (Object.keys(res).length > 0) {
+      services.update((s) => ({
+        ...s,
+        apachePort: res.apachePort ?? s.apachePort,
+        mysqlPort: res.mysqlPort ?? s.mysqlPort
+      }))
+    }
+    return Object.keys(res).length ? cur : loadPersisted()
+  } catch {
+    return loadPersisted()
+  }
+}
+
+export async function setPersistedPort(name: 'apache' | 'mysql', port: number): Promise<void> {
+  try {
+    await invoke('set_persisted_port', { name, port })
+  } catch (e) {
+    console.warn('[vanompp] set_persisted_port failed', e)
+  }
+  const cur = loadPersisted()
+  if (name === 'apache') cur.apachePort = port
+  else cur.mysqlPort = port
+  savePersisted(cur)
+  services.update((s) => ({
+    ...s,
+    apachePort: name === 'apache' ? port : s.apachePort,
+    mysqlPort: name === 'mysql' ? port : s.mysqlPort
+  }))
+}
+
+export async function resetPersistedPort(name: 'apache' | 'mysql'): Promise<void> {
+  try {
+    await invoke('reset_persisted_port_cmd', { name })
+  } catch (e) {
+    console.warn('[vanompp] reset failed', e)
+  }
+  const cur = loadPersisted()
+  if (name === 'apache') delete cur.apachePort
+  else delete cur.mysqlPort
+  savePersisted(cur)
+  services.update((s) => ({
+    ...s,
+    apachePort: name === 'apache' ? DEFAULT_APACHE_PORT : s.apachePort,
+    mysqlPort: name === 'mysql' ? DEFAULT_MYSQL_PORT : s.mysqlPort
+  }))
+}
+
 function mapStatuses(list: ServiceStatus[]) {
+  const cur = (() => {
+    try {
+      return get(services) as ServicesState
+    } catch {
+      return null
+    }
+  })()
+  const eff = getEffectivePorts()
+  // ponytail: merge store > persisted > default to avoid 3306->3309 drift spam
   const next: Partial<ServicesState> & { apachePort: number; mysqlPort: number } = {
-    apachePort: 8080,
-    mysqlPort: 3306,
+    apachePort: cur?.apachePort ?? eff.apache ?? DEFAULT_APACHE_PORT,
+    mysqlPort: cur?.mysqlPort ?? eff.mysql ?? DEFAULT_MYSQL_PORT,
     apache: false,
     mysql: false
   } as any
@@ -99,18 +205,29 @@ function indonesianify(raw: string): string {
 
 export async function refreshStatus(): Promise<void> {
   try {
+    const eff = getEffectivePorts()
     const cur = get(services)
+    // if store still default, fill from effective once (avoids drift)
+    const apEff = cur.apachePort === DEFAULT_APACHE_PORT ? eff.apache : cur.apachePort
+    const mpEff = cur.mysqlPort === DEFAULT_MYSQL_PORT ? eff.mysql : cur.mysqlPort
+    if (apEff !== cur.apachePort || mpEff !== cur.mysqlPort) {
+      services.update((s) => ({
+        ...s,
+        apachePort: apEff,
+        mysqlPort: mpEff
+      }))
+    }
+    const cur2 = get(services)
     const list = await invoke<ServiceStatus[]>('get_status', {
-      apachePort: cur.apachePort ?? 8080,
-      mysqlPort: cur.mysqlPort ?? 3306,
-      apache_port: cur.apachePort ?? 8080,
-      mysql_port: cur.mysqlPort ?? 3306
+      apachePort: cur2.apachePort ?? eff.apache ?? DEFAULT_APACHE_PORT,
+      mysqlPort: cur2.mysqlPort ?? eff.mysql ?? DEFAULT_MYSQL_PORT,
+      apache_port: cur2.apachePort ?? eff.apache ?? DEFAULT_APACHE_PORT,
+      mysql_port: cur2.mysqlPort ?? eff.mysql ?? DEFAULT_MYSQL_PORT
     } as any)
     services.set(mapStatuses(list))
     lastError.set('')
   } catch (e) {
     const msg = typeof e === 'string' ? e : String(e)
-    // jangan spam error di awal — simpan silent tapi log
     console.warn('[vanompp] get_status failed:', msg)
   }
 }
@@ -118,8 +235,9 @@ export async function refreshStatus(): Promise<void> {
 export async function checkPorts(): Promise<PortInfo[]> {
   try {
     const cur = get(services)
-    const ap = cur.apachePort ?? 8080
-    const mp = cur.mysqlPort ?? 3306
+    const eff = getEffectivePorts()
+    const ap = cur.apachePort ?? eff.apache ?? DEFAULT_APACHE_PORT
+    const mp = cur.mysqlPort ?? eff.mysql ?? DEFAULT_MYSQL_PORT
     const list = await invoke<PortInfo[]>('check_ports', {
       apachePort: ap,
       mysqlPort: mp,
@@ -143,9 +261,16 @@ export async function startService(name: 'apache' | 'mysql', port?: number): Pro
   loading.update((l) => ({ ...l, [key]: true }))
   lastError.set('')
   try {
+    const cur = get(services)
+    const eff = getEffectivePorts()
+    const finalPort = port ?? (key === 'apache' ? cur.apachePort ?? eff.apache : cur.mysqlPort ?? eff.mysql)
     const result = await invoke<string>('start_service', {
       name,
-      port: port ?? null
+      port: finalPort,
+      apachePort: key === 'apache' ? finalPort : cur.apachePort,
+      mysqlPort: key === 'mysql' ? finalPort : cur.mysqlPort,
+      apache_port: key === 'apache' ? finalPort : cur.apachePort,
+      mysql_port: key === 'mysql' ? finalPort : cur.mysqlPort
     } as any)
     await refreshStatus()
     return result
@@ -182,8 +307,9 @@ export async function startAllServices(apachePort?: number, mysqlPort?: number):
   lastError.set('')
   try {
     const cur = get(services)
-    const ap = apachePort ?? cur.apachePort ?? 8080
-    const mp = mysqlPort ?? cur.mysqlPort ?? 3306
+    const eff = getEffectivePorts()
+    const ap = apachePort ?? cur.apachePort ?? eff.apache ?? DEFAULT_APACHE_PORT
+    const mp = mysqlPort ?? cur.mysqlPort ?? eff.mysql ?? DEFAULT_MYSQL_PORT
     const res = await invoke<string[]>('start_all_services', {
       apachePort: ap,
       mysqlPort: mp,
@@ -237,10 +363,8 @@ export async function repairMysql(): Promise<string> {
 }
 
 // helper: detect conflict from PortInfo[] — index-aware: 0=apache,1=mysql.
-// Pure fallback when called outside Svelte context; optionally reads cur ports safely.
 export function toConflicts(portInfos: PortInfo[], curPorts?: { apachePort?: number; mysqlPort?: number }): ConflictInfo[] {
   const out: ConflictInfo[] = []
-  // try get store only in browser, fallback to passed curPorts
   const cur = curPorts ?? (() => { try { return get(services) as any } catch { return null } })()
   for (let i = 0; i < portInfos.length; i++) {
     const pi = portInfos[i]
@@ -250,7 +374,6 @@ export function toConflicts(portInfos: PortInfo[], curPorts?: { apachePort?: num
       if (pi.port === cur.mysqlPort) name = 'mysql'
       else if (pi.port === cur.apachePort) name = 'apache'
     }
-    // legacy exact fallback
     if (pi.port === 3306) name = 'mysql'
     out.push({ name, port: pi.port, suggest: pi.suggest })
   }

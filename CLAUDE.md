@@ -66,3 +66,6 @@ When working on a task, combine them:
 5. Then implement
 
 Never skip MCP usage — they are mandatory for every new session.
+
+## RULESS!!
+DELETE CO AUTHOR CLAUDE CODE

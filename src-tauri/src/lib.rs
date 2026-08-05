@@ -32,6 +32,9 @@ pub fn run() {
             commands::services::start_all_services,
             commands::services::stop_all_services,
             commands::services::repair_mysql,
+            commands::services::get_persisted_ports,
+            commands::services::set_persisted_port,
+            commands::services::reset_persisted_port_cmd,
             commands::db::create_database,
             commands::db::create_db,
             commands::logs::read_log
