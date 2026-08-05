@@ -3,18 +3,23 @@
   import BezelCard from './BezelCard.svelte'
   const dispatch = createEventDispatcher()
 </script>
+
 <BezelCard>
-  <div class="text-center py-6 md:py-10">
-    <div class="mx-auto max-w-md">
-      <div class="flex items-center justify-center gap-3 mb-6 font-mono text-[12px]">
-        <div class="rounded-[0.75rem] border border-dashed border-white/15 bg-white/[0.03] px-3 py-2 text-zinc-400">www/</div>
-        <span class="text-zinc-600">→</span>
-        <div class="rounded-[0.75rem] ring-1 ring-volt/20 bg-volt/10 px-3 py-2 text-volt">localhost:8080/{'{folder}'}</div>
+  <div class="py-6 md:py-8 text-center">
+    <div class="mx-auto flex max-w-md flex-col items-center gap-4">
+      <img src="/mascot.png" alt="Vano mascot" class="h-24 w-24 rounded-[20px] ring-1 ring-zinc-200 shadow-sm" />
+      <div class="space-y-1">
+        <h3 class="text-sm font-semibold text-zinc-900">Belum ada project</h3>
+        <p class="text-[12px] leading-relaxed text-zinc-500">
+          Folder <code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-700">www</code> masih kosong.
+          Buat project pertama, URL-nya bakal muncul gede di atas - anti-bingung SMK.
+        </p>
       </div>
-      <p class="text-sm text-zinc-400 leading-relaxed">Belum ada project. Folder <code class="bg-white/[0.06] px-1.5 py-0.5 rounded text-zinc-300">www</code> masih kosong. Buat project pertamamu, nanti URL-nya bakal muncul gede di sini biar ga bingung.</p>
-      <button on:click={()=>dispatch('cta')} class="mt-6 rounded-full bg-volt text-black px-6 py-3 text-sm font-semibold flex items-center gap-2 mx-auto active:scale-[0.98] transition-transform duration-[600ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#e0ff5a]">
+      <button
+        on:click={() => dispatch('cta')}
+        class="mt-1 rounded-full bg-black px-5 py-2.5 text-[12px] font-medium text-white hover:bg-zinc-800 active:scale-[0.98] transition-all"
+      >
         + Buat Project Pertamaku
-        <span class="w-7 h-7 bg-black/10 rounded-full flex items-center justify-center text-xs">↗</span>
       </button>
     </div>
   </div>

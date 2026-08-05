@@ -1,145 +1,104 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import { invoke } from '@tauri-apps/api/core'
-  import BezelCard from './BezelCard.svelte'
   import { MSG } from '$lib/utils/messages'
-
   export let open = false
   export let service: 'apache' | 'mysql' | 'php' | null = null
-  export let lines: number = 120
-
   const dispatch = createEventDispatcher<{ close: void; toast: { msg: string; kind?: 'info' | 'error' } }>()
 
   let content = ''
   let loading = false
   let err = ''
   let kind: 'error' | 'access' = 'error'
-  let copied = false
+  let activeService: 'apache' | 'mysql' | 'php' = 'apache'
 
-  $: if (open && service) {
-    loadLog()
-  }
+  $: if (service) activeService = service as any
+  $: if (open && activeService) loadLog()
 
   async function loadLog() {
-    if (!service) return
     loading = true
     err = ''
     content = ''
     try {
       const res = await invoke<string>('read_log', {
-        service,
-        lines,
-        kind: kind === 'access' ? 'access' : 'error'
-      })
-      content = res
-    } catch (e: any) {
-      const msg = typeof e === 'string' ? e : e?.toString?.() || 'Gagal baca log'
-      err = msg
-      dispatch('toast', { msg, kind: 'error' })
+        service: activeService,
+        kind: kind === 'access' ? 'access' : 'error',
+        lines: 120
+      } as any)
+      content = res || '(log kosong)'
+    } catch (e) {
+      const raw = typeof e === 'string' ? e : (e as any)?.message ?? String(e)
+      err = MSG.logReadFail(raw)
+      dispatch('toast', { msg: err, kind: 'error' })
     } finally {
       loading = false
     }
   }
 
-  function close() {
-    dispatch('close')
-  }
-
-  async function copyLog() {
-    if (!content) return
+  async function copyAll() {
     try {
       await navigator.clipboard.writeText(content)
-      copied = true
-      dispatch('toast', { msg: 'Log dicopy ke clipboard 📋', kind: 'info' })
-      setTimeout(() => (copied = false), 1800)
+      dispatch('toast', { msg: 'Log dicopy', kind: 'info' })
     } catch {
-      // fallback
       dispatch('toast', { msg: MSG.logReadFail('clipboard gagal'), kind: 'error' })
     }
   }
 
-  function handleBackdrop(e: MouseEvent) {
-    if (e.target === e.currentTarget) close()
+  async function openLogsFolder() {
+    try {
+      await invoke('open_logs_folder')
+    } catch (e) {
+      dispatch('toast', { msg: `Gagal buka folder logs: ${String(e)}`, kind: 'error' })
+    }
   }
 </script>
 
 {#if open}
-  <div
-    class="fixed inset-0 z-[60] bg-zinc-950/80 backdrop-blur-[6px] flex items-center justify-center p-4"
-    on:click={handleBackdrop}
-    on:keydown={(e)=> e.key==='Escape' && close()}
-    role="presentation"
-  >
-    <div class="w-full max-w-[720px] max-h-[85dvh] animate-[slideIn_250ms_cubic-bezier(0.32,0.72,0,1)]">
-      <BezelCard highlight>
-        <div class="flex flex-col gap-4 max-h-[80dvh]">
-          <div class="flex justify-between items-center">
-            <div>
-              <h3 class="text-[12px] font-mono font-semibold tracking-[0.14em] uppercase text-zinc-400">Logs • {service ?? 'log'}</h3>
-              <p class="mt-1 text-[11px] font-mono text-zinc-600">bin/{service}/... • tail {lines} baris • <span class="text-zinc-500">volt = ON</span></p>
-            </div>
-            <button on:click={close} class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/15 text-zinc-400 hover:text-white flex items-center justify-center">×</button>
-          </div>
-
-          <div class="flex gap-2 flex-wrap items-center">
-            <div class="inline-flex rounded-full bg-zinc-800 ring-1 ring-white/10 p-1 text-[11px] font-mono">
-              <button
-                on:click={()=>{ service='apache'; kind='error'; loadLog() }}
-                class="px-3 py-1.5 rounded-full transition-all {service==='apache' && kind==='error' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}"
-              >Apache error</button>
-              <button
-                on:click={()=>{ service='apache'; kind='access'; loadLog() }}
-                class="px-3 py-1.5 rounded-full transition-all {service==='apache' && kind==='access' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}"
-              >access</button>
-              <button
-                on:click={()=>{ service='mysql'; kind='error'; loadLog() }}
-                class="px-3 py-1.5 rounded-full transition-all {service==='mysql' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}"
-              >MySQL</button>
-              <button
-                on:click={()=>{ service='php'; kind='error'; loadLog() }}
-                class="px-3 py-1.5 rounded-full transition-all {service==='php' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}"
-              >PHP</button>
-            </div>
-            <button on:click={loadLog} disabled={loading} class="rounded-full bg-white/[0.06] ring-1 ring-white/10 px-3 py-1.5 text-[11px] font-mono text-zinc-300 hover:bg-white/[0.10] disabled:opacity-50">
-              {loading ? 'Loading...' : '↻ Refresh'}
-            </button>
-            <button on:click={copyLog} disabled={!content || loading} class="rounded-full bg-volt text-black px-3 py-1.5 text-[11px] font-semibold flex items-center gap-1 disabled:opacity-50">
-              {copied ? 'Copied! ✓' : 'Copy'}
-            </button>
-          </div>
-
-          {#if err}
-            <p class="text-[11px] font-mono text-red-400 bg-red-500/10 ring-1 ring-red-500/20 rounded-xl px-3 py-2">{err}</p>
-          {/if}
-
-          <div class="rounded-[1rem] bg-zinc-950 ring-1 ring-white/10 p-3 overflow-auto max-h-[48dvh] min-h-[180px]">
-            {#if loading}
-              <div class="flex items-center gap-2 text-[12px] font-mono text-zinc-500 py-6 justify-center">
-                <span class="w-4 h-4 border-2 border-zinc-600 border-t-volt rounded-full animate-spin"></span>
-                Baca {service} log...
-              </div>
-            {:else if content}
-              <pre class="text-[11px] font-mono leading-relaxed text-zinc-300 whitespace-pre-wrap break-words selection:bg-volt selection:text-black">{content}</pre>
-            {:else}
-              <p class="text-[11px] font-mono text-zinc-600 py-6 text-center">{MSG.logEmpty}</p>
-            {/if}
-          </div>
-
-          <div class="flex justify-between items-center gap-2">
-            <p class="text-[10px] font-mono text-zinc-600 leading-relaxed max-w-[70%]">
-              Tip: kalau Apache gagal → butuh VC++ Redist. Kalau MySQL error → cek data folder. Log auto ke-refresh pas service start.
-            </p>
-            <button on:click={close} class="rounded-full bg-white text-black px-5 py-2 text-[12px] font-semibold hover:bg-zinc-100 active:scale-[0.98] transition-all">Tutup</button>
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4" on:click|self={() => dispatch('close')}>
+    <div class="bg-white border border-zinc-200 rounded-[24px] p-5 md:p-6 shadow-[0_16px_48px_rgba(0,0,0,0.15)] w-full max-w-[640px] max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <h3 class="text-sm font-semibold text-zinc-900">{activeService === 'apache' ? 'Apache error.log' : activeService === 'mysql' ? 'MySQL mysql_error.log' : 'PHP error'}</h3>
+          <div class="flex items-center gap-1.5">
+            <button
+              on:click={()=>{ activeService='apache'; kind='error'; loadLog() }}
+              class="px-3 py-1.5 rounded-full text-[11px] font-medium transition-all {activeService==='apache' && kind==='error' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700 bg-zinc-100'}"
+            >Apache error</button>
+            <button
+              on:click={()=>{ activeService='mysql'; kind='error'; loadLog() }}
+              class="px-3 py-1.5 rounded-full text-[11px] font-medium transition-all {activeService==='mysql' && kind==='error' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700 bg-zinc-100'}"
+            >MySQL error</button>
+            <button
+              on:click={()=>{ activeService='php'; kind='error'; loadLog() }}
+              class="px-3 py-1.5 rounded-full text-[11px] font-medium transition-all {activeService==='php' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700 bg-zinc-100'}"
+            >PHP</button>
           </div>
         </div>
-      </BezelCard>
+        <button class="h-7 w-7 rounded-full border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50" on:click={()=>dispatch('close')}>x</button>
+      </div>
+
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div class="text-[10px] font-mono text-zinc-500">120 baris terakhir</div>
+        <div class="flex items-center gap-2">
+          <button class="rounded-full border border-zinc-200 bg-white px-3 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50" on:click={copyAll}>Copy</button>
+          <button class="rounded-full border border-zinc-200 bg-white px-3 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50" on:click={openLogsFolder}>Buka folder logs</button>
+          <button class="rounded-full bg-zinc-100 px-3 py-1 text-[11px] text-zinc-700 hover:bg-zinc-200" on:click={loadLog}>Refresh</button>
+        </div>
+      </div>
+
+      {#if loading}
+        <div class="rounded-xl bg-zinc-50 border border-zinc-200 p-4 font-mono text-[11px] text-zinc-500">Loading log...</div>
+      {:else if err}
+        <div class="rounded-xl bg-red-50 border border-red-200 p-4 font-mono text-[11px] text-red-700">{err}</div>
+      {:else}
+        <pre class="flex-1 overflow-auto rounded-xl bg-zinc-50 border border-zinc-200 p-3 font-mono text-[11px] text-zinc-700 leading-relaxed whitespace-pre-wrap break-words max-h-[50vh]">{content}</pre>
+      {/if}
+
+      <p class="mt-3 text-[10px] font-mono text-zinc-400">Tip: Apache gagal butuh VC++ Redist. MySQL error cek data folder.</p>
+
+      <div class="mt-4 flex justify-end">
+        <button class="rounded-full bg-black px-4 py-2 text-[12px] font-medium text-white hover:bg-zinc-800" on:click={()=>dispatch('close')}>Tutup</button>
+      </div>
     </div>
   </div>
 {/if}
-
-<style>
-  @keyframes slideIn {
-    from { transform: translateY(10px) scale(0.98); opacity:0 }
-    to { transform: translateY(0) scale(1); opacity:1 }
-  }
-</style>

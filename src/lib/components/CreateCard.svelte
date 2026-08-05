@@ -3,8 +3,7 @@
   import { invoke } from '@tauri-apps/api/core'
   import BezelCard from './BezelCard.svelte'
   import { previewSlug, validateSlug } from '$lib/utils/slug'
-  import { refreshProjects, selected as selectedStore } from '$lib/stores/projects'
-  import { projects as projectsStore } from '$lib/stores/projects'
+  import { refreshProjects, selected as selectedStore, projects as projectsStore } from '$lib/stores/projects'
   import { MSG } from '$lib/utils/messages'
 
   const dispatch = createEventDispatcher()
@@ -51,9 +50,8 @@
       unsub()
       const found = currentList.find((p) => p.name === createdName)
       if (dbChecked && found && !found.db_exists) {
-        warnMsg = `${MSG.mysqlOff} — DB "${dbFinalSanitized}" belum kekonek, coba Start MySQL dulu.`
+        warnMsg = `${MSG.mysqlOff} - DB "${dbFinalSanitized}" belum kekonek, coba Start MySQL dulu.`
       }
-
       selectedStore.set(createdName)
       dispatch('created', { name: createdName, db: dbChecked ? dbFinalSanitized : '', warn: warnMsg })
       name = ''
@@ -85,51 +83,46 @@
 </script>
 
 <BezelCard>
-  <h2 class="text-[11px] font-mono font-semibold tracking-[0.14em] uppercase text-zinc-500 mb-4">Buat Project Baru</h2>
-  <div class="space-y-3">
-    <div>
-      <input
-        id="create-input"
-        bind:value={name}
-        on:keydown={onKeydown}
-        placeholder="nama-project (contoh: toko-buku)"
-        disabled={loading}
-        class="w-full bg-zinc-800/70 ring-1 ring-white/10 rounded-[0.85rem] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-volt/50 transition-all disabled:opacity-60"
-      />
-      <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-mono">
-        {#if slug}
-          <span class="text-zinc-500">slug →</span><code class="bg-white/[0.06] px-2 py-0.5 rounded-full text-volt">{slug}</code>
-        {:else}
-          <span class="text-zinc-600">ketik nama dulu — {MSG.invalidSlug}</span>
-        {/if}
-        {#if error}
-          <span class="text-red-400 ml-1">{error}</span>
-        {/if}
+  <div class="space-y-4">
+    <div class="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">Nama Project Baru</div>
+
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
+      <div class="flex flex-1 items-center overflow-hidden rounded-lg border border-zinc-200 bg-white">
+        <input
+          id="create-input"
+          bind:value={name}
+          on:keydown={onKeydown}
+          placeholder="toko-buku"
+          disabled={loading}
+          class="h-9 flex-1 border-0 bg-transparent px-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:ring-0"
+        />
+        <span class="whitespace-nowrap px-2 font-mono text-[11px] text-zinc-400">
+          -> www/{slug || 'nama'}/
+        </span>
       </div>
+
+      <label class="inline-flex items-center gap-1.5 text-[12px] text-zinc-700">
+        <input type="checkbox" bind:checked={dbChecked} class="h-4 w-4 rounded border-zinc-300 text-black focus:ring-[#E9FF70] accent-black" />
+        Buat Database?
+      </label>
     </div>
-    <label class="flex items-center gap-2.5 text-sm text-zinc-300 cursor-pointer select-none">
-      <input type="checkbox" bind:checked={dbChecked} disabled={loading} class="w-4 h-4 rounded accent-volt bg-zinc-800 ring-1 ring-white/10 disabled:opacity-50" />
-      <span>Buat database MySQL sekalian?</span>
-    </label>
-    {#if dbChecked}
-      <input bind:value={dbName} placeholder="nama DB (default = {slug || 'slug'})" disabled={loading} class="w-full bg-zinc-800/60 ring-1 ring-white/10 rounded-[0.85rem] px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-volt/30 disabled:opacity-60" />
-      <p class="text-[11px] font-mono text-zinc-500">DB: <code class="text-zinc-300">{dbFinalSanitized || '(kosong)'}</code> — pastikan MySQL ON biar langsung kebikin</p>
+
+    {#if error}
+      <p class="text-[11px] font-mono text-red-600">{error}</p>
     {/if}
     {#if warnMsg}
-      <p class="text-[11px] font-mono text-amber-300 bg-amber-500/10 ring-1 ring-amber-500/20 rounded-xl px-3 py-2">{warnMsg}</p>
+      <p class="text-[11px] font-mono text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{warnMsg}</p>
     {/if}
-    <button
-      on:click={handleCreate}
-      disabled={!canCreate}
-      class="mt-1 w-full md:w-auto rounded-full {canCreate ? 'bg-white text-black hover:bg-zinc-100' : 'bg-zinc-800 text-zinc-600'} px-6 py-3 text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.32,0.72,0,1)] disabled:cursor-not-allowed"
-    >
-      {#if loading}
-        <span class="w-4 h-4 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin"></span>
-        Bikin...
-      {:else}
-        + Buat Project
-        <span class="w-7 h-7 {canCreate ? 'bg-black/10' : 'bg-white/10'} rounded-full flex items-center justify-center text-xs">↗</span>
-      {/if}
-    </button>
+
+    <div class="flex justify-end">
+      <button
+        class="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-[12px] font-medium text-white hover:bg-zinc-800 active:scale-[0.98] transition-all disabled:opacity-50"
+        disabled={!canCreate}
+        on:click={handleCreate}
+      >
+        {loading ? '...' : 'Create Project'}
+        <span class="flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[10px]">+</span>
+      </button>
+    </div>
   </div>
 </BezelCard>
