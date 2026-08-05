@@ -1,7 +1,7 @@
 <p align="center">
   <img src="public/mascot.png" width="160" height="160" alt="Vano mascot gajah pink" />
   <br/>
-  <b>Vano</b> — gajah Apache pink santai bawa CD lamanya, nemenin ngoding kelas 10-11 · v1.2.0 Stitch light
+  <b>Vanompp</b> — Apache + MySQL portable, yang mudah digunakan oleh pemula
   <br/>
   <a href="#quickstart"><b>Quickstart</b></a> · <a href="#fitur">Fitur</a> · <a href="#cara-pakai">Cara Pakai</a> · <a href="#stack">Stack</a> · <a href="#dev">Dev</a> · <a href="#license">License</a>
 </p>
