@@ -186,6 +186,12 @@
               on:click={() => handleResetPort('apache')}
               title="Reset ke 8080">×</button>
           {/if}
+          <button
+            class="rounded-full border border-zinc-200 bg-white px-2.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 transition-colors"
+            on:click={() => dispatch('openLogs', { service: 'apache' })}
+          >
+            Logs
+          </button>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -226,6 +232,12 @@
             <span class="text-[10px] font-mono text-zinc-400">custom</span>
             <button class="text-[10px] text-zinc-500 underline hover:text-zinc-800" on:click={() => handleResetPort('mysql')} title="Reset ke 3306">×</button>
           {/if}
+          <button
+            class="rounded-full border border-zinc-200 bg-white px-2.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 transition-colors"
+            on:click={() => dispatch('openLogs', { service: 'mysql' })}
+          >
+            Logs
+          </button>
         </div>
       </div>
       <div class="flex items-center gap-2">
