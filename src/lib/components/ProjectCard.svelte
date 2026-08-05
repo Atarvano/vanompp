@@ -26,6 +26,25 @@
   $: showCreateDb = hasConn && !db_exists
   $: has_conn = hasConn
 
+  // Custom DB name — siswa mau custom, fallback db_name || name -> _
+  let customDbName = ''
+  $: defaultDb = currentProject ? (currentProject.db_name || currentProject.name.replace(/-/g, '_')).toLowerCase() : ''
+  // sync custom when project changes or defaultDb changes and custom empty or equals previous default
+  $: if (currentProject) {
+    if (!customDbName || customDbName === _prevDefault) {
+      customDbName = defaultDb
+    }
+    _prevDefault = defaultDb
+  }
+  let _prevDefault = ''
+
+  function sanitizeDb(s: string) {
+    // ponytail: allow a-z0-9_ only, siswa typo dash -> _
+    return s.trim().toLowerCase().replace(/-/g,'_').replace(/[^a-z0-9_]/g,'')
+  }
+  $: sanitizedDb = sanitizeDb(customDbName)
+  $: dbValid = sanitizedDb.length > 0 && sanitizedDb.length <= 64 && /^[a-z_][a-z0-9_]*$/.test(sanitizedDb)
+
   function copyUrl() {
     if (!currentUrl) return
     navigator.clipboard.writeText(currentUrl).then(() => {
@@ -64,7 +83,8 @@
 
   async function handleCreateDb() {
     if (!currentProject) return
-    const targetDb = currentProject.db_name || currentProject.name.replace(/-/g, '_')
+    const targetDb = sanitizedDb || currentProject.db_name || currentProject.name.replace(/-/g, '_').toLowerCase()
+    if (!targetDb) return
     dbLoading = true
     dbMsg = null
     dbErr = null
@@ -143,27 +163,46 @@
       </div>
 
       {#if has_conn}
-        <div class="flex items-center gap-2 flex-wrap pt-2 border-t border-zinc-100">
-          <button
-            class="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-[12px] text-zinc-700 hover:bg-zinc-50 transition-colors"
-            on:click={openPhpMyAdmin}
-          >
-            phpMyAdmin ↗
-          </button>
-          {#if showCreateDb}
+        <div class="flex flex-col gap-2 pt-2 border-t border-zinc-100">
+          <div class="flex items-center gap-2 flex-wrap">
             <button
-              on:click={handleCreateDb}
-              disabled={dbLoading}
-              class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 text-[12px] font-medium text-zinc-900 hover:bg-amber-200 transition-colors disabled:opacity-60"
+              class="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-[12px] text-zinc-700 hover:bg-zinc-50 transition-colors"
+              on:click={openPhpMyAdmin}
             >
-              {#if dbLoading}
-                <span class="h-3 w-3 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent"></span> Bikin DB {db_name || (currentProject?.name.replace(/-/g, '_'))}...
-              {:else}
-                + Create DB {db_name || (currentProject?.name.replace(/-/g, '_'))}
-              {/if}
+              phpMyAdmin ↗
             </button>
-          {:else if db_exists}
-            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">DB {db_name} ✓</span>
+            {#if db_exists}
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">DB {db_name} ✓</span>
+            {/if}
+          </div>
+
+          {#if showCreateDb}
+            <div class="flex items-center gap-2 flex-wrap">
+              <input
+                class="h-8 w-[180px] rounded-full border border-zinc-200 bg-white px-3 text-[12px] font-mono text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300 focus:ring-1 focus:ring-[#E9FF70]/50"
+                placeholder="nama_db"
+                bind:value={customDbName}
+                on:input={(e)=>{ customDbName = sanitizeDb((e.target as HTMLInputElement).value) }}
+              />
+              <button
+                on:click={handleCreateDb}
+                disabled={dbLoading || !dbValid}
+                class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 text-[12px] font-medium text-zinc-900 hover:bg-amber-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={sanitizedDb ? `Buat DB ${sanitizedDb}` : 'Isi nama DB dulu'}
+              >
+                {#if dbLoading}
+                  <span class="h-3 w-3 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent"></span> Bikin {sanitizedDb}...
+                {:else}
+                  + Create DB
+                {/if}
+              </button>
+              {#if customDbName && customDbName !== sanitizedDb}
+                <span class="text-[10px] font-mono text-zinc-400">→ {sanitizedDb}</span>
+              {/if}
+              {#if customDbName && !dbValid}
+                <span class="text-[10px] text-red-600">harus huruf/_ diawal max 64</span>
+              {/if}
+            </div>
           {/if}
         </div>
       {/if}
