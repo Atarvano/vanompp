@@ -12,6 +12,10 @@
   let dbChecked = true
   let dbName = ''
   let loading = false
+
+  function sanitizeDbInput(s: string) {
+    return s.trim().toLowerCase().replace(/-/g,'_').replace(/[^a-z0-9_]/g,'')
+  }
   let errorMsg: string | null = null
   let warnMsg: string | null = null
 
@@ -106,6 +110,21 @@
         Buat Database?
       </label>
     </div>
+
+    {#if dbChecked && slug}
+      <div class="flex items-center gap-2">
+        <input
+          bind:value={dbName}
+          on:input={(e)=>{ dbName = sanitizeDbInput((e.target as HTMLInputElement).value) }}
+          placeholder={dbFinalSanitized || 'nama_db custom'}
+          class="h-8 w-[180px] rounded-full border border-zinc-200 bg-white px-3 text-[12px] font-mono text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-300 focus:ring-1 focus:ring-[#E9FF70]/50"
+        />
+        <span class="text-[10px] font-mono text-zinc-400">→ {dbFinalSanitized || '...'}</span>
+        {#if dbName && dbFinalSanitized && dbFinalSanitized.length > 0 && dbFinalSanitized.length <= 64}
+          <span class="text-[10px] text-emerald-700 font-mono">custom ok</span>
+        {/if}
+      </div>
+    {/if}
 
     {#if error}
       <p class="text-[11px] font-mono text-red-600">{error}</p>
