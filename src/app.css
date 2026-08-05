@@ -1,15 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-  --color-zinc-950: #09090B;
-  --color-zinc-900: #18181B;
-  --color-zinc-800: #27272A;
-  --color-zinc-700: #3F3F46;
-  --color-zinc-600: #52525B;
-  --color-zinc-500: #71717A;
-  --color-zinc-400: #A1A1AA;
-  --color-zinc-300: #D4D4D8;
-  --color-zinc-100: #F4F4F5;
   --color-volt: #E9FF70;
   --font-sans: "Geist Sans", "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
@@ -18,22 +9,28 @@
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #27272A transparent;
+  scrollbar-color: #e4e4e7 transparent;
 }
-::-webkit-scrollbar {
+*::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-thumb {
-  background: #27272A;
+*::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
   border-radius: 9999px;
 }
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 html {
-  background: #09090B;
+  background: #fdfdf9;
+  min-height: 100dvh;
 }
 body {
+  background: #fdfdf9;
   min-height: 100dvh;
-  background: #09090B;
+  color: #18181b;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
