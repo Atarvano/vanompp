@@ -120,7 +120,7 @@
           <p class="text-[11px] text-zinc-500">Apache + MySQL portable - anti-bingung SMK</p>
         </div>
       </div>
-      <div class="rounded-full border border-zinc-200 bg-white px-2.5 py-0.5 font-mono text-[10px] text-zinc-600">v0.1.0</div>
+      <div class="rounded-full border border-zinc-200 bg-white px-2.5 py-0.5 font-mono text-[10px] text-zinc-600">v1.2.0</div>
     </header>
 
     <ServiceCard on:conflict={handleServiceConflict} on:error={handleServiceError} on:toast={handleServiceToast} on:openLogs={handleOpenLogViewer} />

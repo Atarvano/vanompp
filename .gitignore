@@ -22,7 +22,9 @@ www/*
 
 # Session-local working memory - NEVER push to GitHub (vibecoding traces)
 .claude/
-docs/
+docs/docs-dev/
+docs/FIXTURE.md
+docs/superpowers/
 RECOVERY.md
 .agents/
 skills-lock.json
@@ -34,10 +36,16 @@ static-build/
 # Local persona / guru — keep on disk, not in repo
 GURU_SMK.txt
 
-# Heavy binaries & screenshots
+# Heavy binaries & screenshots — but keep Vano mascot + tauri icons
 *.zip
-*.png
 screenshots/
+*.png
+!public/mascot.png
+!src-tauri/icons/*.png
+!src-tauri/icons/*.ico
+!src-tauri/icons/*.icns
+!docs/images/mascot-*.png
+!docs/images/*mascot*
 
 # Vite template garbage
 public/vite.svg
