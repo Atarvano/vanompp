@@ -117,7 +117,7 @@
         <img src="/mascot.png" alt="Vano" class="h-8 w-8 md:h-[32px] md:w-[32px] rounded-[10px] object-cover ring-1 ring-zinc-200 shadow-sm bg-white" />
         <div class="leading-tight">
           <h1 class="text-[14px] font-bold tracking-tight text-zinc-900">vanompp</h1>
-          <p class="text-[11px] text-zinc-500">Apache + MySQL portable - anti-bingung SMK</p>
+          <p class="text-[11px] text-zinc-500">Apache + MySQL portable buat belajar web</p>
         </div>
       </div>
       <div class="rounded-full border border-zinc-200 bg-white px-2.5 py-0.5 font-mono text-[10px] text-zinc-600">v1.2.0</div>

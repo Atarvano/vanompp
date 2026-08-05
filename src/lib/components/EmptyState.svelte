@@ -12,7 +12,7 @@
         <h3 class="text-sm font-semibold text-zinc-900">Belum ada project</h3>
         <p class="text-[12px] leading-relaxed text-zinc-500">
           Folder <code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-700">www</code> masih kosong.
-          Buat project pertama, URL-nya bakal muncul gede di atas - anti-bingung SMK.
+          Klik di bawah buat project pertama — nanti link-nya muncul di atas biar gampang buka.
         </p>
       </div>
       <button
