@@ -3,7 +3,7 @@
   <br/>
   <b>Vanompp</b> — Apache + MySQL portable yang gampang buat pemula
   <br/>
-  <a href="#quickstart"><b>Quickstart</b></a> · <a href="#fitur">Fitur</a> · <a href="#cara-pakai">Cara Pakai</a> · <a href="#tech-stack">Tech Stack</a> · <a href="#changelog">Changelog</a>
+  <a href="#quickstart"><b>Quickstart</b></a> · <a href="#fitur">Fitur</a> · <a href="#cara-pakai">Cara Pakai</a> · <a href="#tech-stack">Tech Stack</a>
 </p>
 
 # Vanompp v1.2.0
@@ -45,24 +45,6 @@ Apache, MySQL, PHP 8.3 + phpMyAdmin udah included (Windows x64).
 - **TypeScript** — type safety
 - **Tailwind CSS** — styling
 - **Tauri + Rust** — native app portable
-
-## Changelog
-
-### v1.2.0 — Stitch Full Light + Vano
-
-- UI full light #fdfdf9 + mascot Vano gajah pink 32px + icon 1024
-- Nama DB bebas custom input siswa
-- Logs pill per row + modal white
-- Port bentrok Tetap pakai / Ganti
-- Installer clean tanpa debug trace
-- Copywriting ramah pemula
-
-### v0.1.0 — Initial
-
-- Portable Apache + MySQL + PHP 8.3 + phpMyAdmin Start All
-- Bikin folder + index.php + conn.php
-- Buat DB checkbox + Create DB
-- Scan www + BIG URL Copy + Buka Browser
 
 ## Files
 
