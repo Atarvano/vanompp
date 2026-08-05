@@ -38,6 +38,10 @@ Apache, MySQL, PHP 8.3 + phpMyAdmin udah included (Windows x64).
 4. Butuh database? Centang Buat Database? dan ketik nama yang kamu mau
 5. Kalau error, klik Logs
 
+## Tech Stack
+
+Svelte + SvelteKit + Vite + TypeScript + Tailwind + Tauri + Rust
+
 ## Files
 
 ```
