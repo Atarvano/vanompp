@@ -40,7 +40,11 @@ Apache, MySQL, PHP 8.3 + phpMyAdmin udah included (Windows x64).
 
 ## Tech Stack
 
-Svelte + SvelteKit + Vite + TypeScript + Tailwind + Tauri + Rust
+- **Svelte + SvelteKit** — UI reaktif
+- **Vite** — build tool
+- **TypeScript** — type safety
+- **Tailwind CSS** — styling
+- **Tauri + Rust** — native app portable
 
 ## Files
 
