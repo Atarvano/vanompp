@@ -39,8 +39,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "resources/bin",
-      "../www/__vano_health"
+      "resources/bin"
     ],
     "windows": {
       "nsis": {

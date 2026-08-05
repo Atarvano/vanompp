@@ -11,19 +11,17 @@ pub fn get_app_root() -> PathBuf {
 
 pub fn ensure_www(root: &Path) -> std::io::Result<PathBuf> {
     let www = root.join("www");
-    let health_dir = www.join("__vano_health");
-
-    std::fs::create_dir_all(&health_dir)?;
-
-    let index_php = health_dir.join("index.php");
-    if !index_php.exists() {
-        std::fs::write(&index_php, "<?php echo \"ok\";")?;
-    }
+    // ponytail: __vano_health removed from release — debugging trace shouldn't ship to SMK laptops
+    // ensure only www/ + .gitkeep, no health endpoint in prod
+    std::fs::create_dir_all(&www)?;
 
     let gitkeep = www.join(".gitkeep");
     if !gitkeep.exists() {
         std::fs::write(&gitkeep, "")?;
     }
+
+    // cleanup leftover health from old installs — silent, best-effort
+    let _ = std::fs::remove_dir_all(www.join("__vano_health"));
 
     Ok(www)
 }
@@ -47,12 +45,8 @@ mod tests {
 
         let www = ensure_www(&tmp).unwrap();
         assert!(www.exists());
-        assert!(www.join("__vano_health").exists());
-        assert!(www.join("__vano_health/index.php").exists());
         assert!(www.join(".gitkeep").exists());
-
-        let content = fs::read_to_string(www.join("__vano_health/index.php")).unwrap();
-        assert!(content.contains("ok"));
+        assert!(!www.join("__vano_health").exists(), "health removed in release");
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -71,17 +65,15 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_www_preserves_existing_index() {
-        let tmp = std::env::temp_dir().join(format!("vanompp_test_preserve_{}", std::process::id()));
+    fn test_ensure_www_cleans_old_health() {
+        let tmp = std::env::temp_dir().join(format!("vanompp_test_clean_{}", std::process::id()));
         let _ = fs::remove_dir_all(&tmp);
         let health = tmp.join("www/__vano_health");
         fs::create_dir_all(&health).unwrap();
-        let custom = "<?php echo \"custom\";";
-        fs::write(health.join("index.php"), custom).unwrap();
+        fs::write(health.join("index.php"), "<?php echo \"old\";").unwrap();
 
         let www = ensure_www(&tmp).unwrap();
-        let content = fs::read_to_string(www.join("__vano_health/index.php")).unwrap();
-        assert_eq!(content, custom, "should not overwrite existing index.php");
+        assert!(!www.join("__vano_health").exists(), "old health cleaned");
 
         let _ = fs::remove_dir_all(&tmp);
     }
