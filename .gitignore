@@ -68,3 +68,7 @@ desktop.ini
 *.swp
 *.swo
 www/__vano_health
+CLAUDE.md
+spec.md
+RELEASE_v*.md
+RELEASE_NOTES_v*.md
