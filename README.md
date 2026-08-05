@@ -6,7 +6,7 @@
   <a href="#quickstart"><b>Quickstart</b></a> · <a href="#fitur">Fitur</a> · <a href="#cara-pakai">Cara Pakai</a> · <a href="#stack">Stack</a> · <a href="#dev">Dev</a> · <a href="#license">License</a>
 </p>
 
-# Vanompp v1.2.0 — Stitch Full Light + Vano mascot
+# Vanompp v1.2.0 — LightWeight
 
 ## Quickstart
 
@@ -53,17 +53,15 @@ vanompp/
   bin/ apache/ mysql/ php/ phpmyadmin/
   src/ App.svelte lib/components/ BezelCard ServiceCard ProjectCard CreateCard EmptyState Toast PortConflictModal LogViewer + lib/stores/ lib/utils/
   src-tauri/ tauri.conf.json v1.2.0 + icons/ Vano + src/lib.rs port persist
-  public/ mascot.png Vano gajah 512
-  docs/images/ mascot-512.png mascot-original.png
 ```
 
 ## Dev
 
 ```bash
-npm run check   # 115 files 0 errors
-npm run dev     # vite 1420
-npm run build   # 89KB gzip 30KB
-cargo test --manifest-path src-tauri/Cargo.toml  # 52 passed
+npm run check  
+npm run dev    
+npm run build  
+cargo test --manifest-path src-tauri/Cargo.toml  
 ```
 
 ## License
