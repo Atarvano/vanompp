@@ -78,7 +78,12 @@ fn try_paths(root: &PathBuf, rels: &[&str]) -> Option<PathBuf> {
         if p.exists() {
             return Some(p);
         }
-        // also try parent variants
+        // also try resources/ prefix (Tauri MSI/NSIS layout)
+        let rp = root.join("resources").join(rel);
+        if rp.exists() {
+            return Some(rp);
+        }
+        // also try parent variants (+ resources prefix)
         for i in 0..4 {
             let mut cur = root.clone();
             for _ in 0..i {
@@ -90,25 +95,39 @@ fn try_paths(root: &PathBuf, rels: &[&str]) -> Option<PathBuf> {
             if pp.exists() {
                 return Some(pp);
             }
+            let rpp = cur.join("resources").join(rel);
+            if rpp.exists() {
+                return Some(rpp);
+            }
         }
     }
     None
 }
 
 fn resolve_bin(root: &PathBuf, rel: &str) -> Option<PathBuf> {
-    // first exact
+    // first exact (dev/portable: root/bin/...)
     let primary = root.join("bin").join(rel);
     if primary.exists() {
         return Some(primary);
     }
-    // try exe sibling bin
+    // Tauri installed: root/resources/bin (MSI/NSIS bundle.resources -> exe_parent/resources/bin)
+    let res_root = root.join("resources").join("bin").join(rel);
+    if res_root.exists() {
+        return Some(res_root);
+    }
+    // try exe-relative (covers installed where exe != root)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(par) = exe.parent() {
+            // exe sibling: exe_dir/bin/...  and  exe_dir/resources/bin/...
             let sib = par.join("bin").join(rel);
             if sib.exists() {
                 return Some(sib);
             }
-            // exe parent parent bin
+            let res_sib = par.join("resources").join("bin").join(rel);
+            if res_sib.exists() {
+                return Some(res_sib);
+            }
+            // exe parent: parent/bin/...  and  parent/resources/bin/... (covers nested launchers)
             if let Some(pp) = par.parent() {
                 let sib2 = pp.join("bin").join(rel);
                 if sib2.exists() {
@@ -184,3 +203,62 @@ pub fn read_tail(path: &Path, max_lines: usize) -> String {
     }
     lines[lines.len() - max_lines..].join("\n")
 }
+
+#[cfg(test)]
+mod tests_resolve_bin {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_resolve_bin_installed_resources_layout() {
+        // Simulate Tauri MSI/NSIS installed layout:
+        //   <install>/resources/bin/apache/bin/httpd.exe
+        // where exe is <install>/Vanompp.exe  (so root = exe.parent())
+        // Before fix, resolve_bin never checked exe.parent()/resources/bin -> FAIL
+        let base = std::env::temp_dir().join(format!("vano_resolve_test_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        // Installed structure: base/resources/bin/apache/bin/httpd.exe
+        let httpd = base.join("resources").join("bin").join("apache").join("bin").join("httpd.exe");
+        fs::create_dir_all(httpd.parent().unwrap()).unwrap();
+        fs::write(&httpd, b"fake").unwrap();
+        // Also mysql at same layout
+        let mysqld = base.join("resources").join("bin").join("mysql").join("bin").join("mysqld.exe");
+        fs::create_dir_all(mysqld.parent().unwrap()).unwrap();
+        fs::write(&mysqld, b"fake").unwrap();
+
+        // root = install dir (where exe lives)
+        let root = base.clone();
+        // primary check inside resolve_bin: root/bin/apache/bin/httpd.exe does NOT exist
+        assert!(!root.join("bin").join("apache/bin/httpd.exe").exists());
+        // but root/resources/bin/apache/bin/httpd.exe DOES exist
+        assert!(httpd.exists());
+
+        // try_paths-based fallback inside resolve_bin should find it now via
+        // root/resources/bin + exe-parent resources fallback
+        // Call via the public wrappers
+        let got_a = resolve_apache_bin(&root);
+        assert!(got_a.is_ok(), "httpd should be found in installed resources layout, got err: {:?}", got_a.err());
+        let got_m = resolve_mysql_bin(&root);
+        assert!(got_m.is_ok(), "mysqld should be found in installed resources layout, got err: {:?}", got_m.err());
+
+        // Also verify try_paths direct: bin/apache/bin/httpd.exe with resources prefix
+        let via_try = try_paths(&root, &["bin/apache/bin/httpd.exe"]);
+        assert!(via_try.is_some(), "try_paths should find via resources/bin prefix");
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_resolve_bin_still_finds_dev_bin_layout() {
+        // Dev/portable: root/bin/apache/bin/httpd.exe  should still work (no regression)
+        let base = std::env::temp_dir().join(format!("vano_resolve_dev_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let httpd = base.join("bin").join("apache").join("bin").join("httpd.exe");
+        fs::create_dir_all(httpd.parent().unwrap()).unwrap();
+        fs::write(&httpd, b"fake").unwrap();
+        let got = resolve_apache_bin(&base);
+        assert!(got.is_ok(), "dev layout still must work");
+        let _ = fs::remove_dir_all(&base);
+    }
+}
+
