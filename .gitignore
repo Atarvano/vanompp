@@ -20,7 +20,14 @@ bin/
 www/*
 !www/.gitkeep
 
+
 # Session-local working memory - NEVER push to GitHub (vibecoding traces)
+CONTEXT.md
+CONTEXT-MAP.md
+docs/agents/
+docs/adr/
+.scratch/
+.rtk/
 .claude/
 docs/docs-dev/
 docs/FIXTURE.md
@@ -72,3 +79,4 @@ CLAUDE.md
 spec.md
 RELEASE_v*.md
 RELEASE_NOTES_v*.md
+
