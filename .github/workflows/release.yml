@@ -24,6 +24,15 @@ jobs:
           workspaces: src-tauri
           cache-all-crates: true
 
+      - name: Cache downloaded zips + extracted bins
+        uses: actions/cache@v4
+        with:
+          path: |
+            src-tauri/resources/bin
+            ${{ env.TEMP }}/vanompp_*.zip
+          key: vanompp-bins-${{ hashFiles('scripts/download-bin.ps1') }}-v1
+          restore-keys: vanompp-bins-
+
       - run: npm install
 
       - name: Download Apache/PHP/MySQL/phpMyAdmin (FULL bundle)
