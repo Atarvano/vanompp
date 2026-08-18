@@ -5,20 +5,20 @@ Copyright (c) 2026 Atarvano
 This software is free for non-commercial use only.
 
 You may:
-- Use, copy, modify, merge, publish, distribute this software for personal,
-  educational, SMK, and non-commercial purposes.
+- Use, copy, modify, merge, publish, and distribute this software for personal,
+  educational, vocational school (SMK), and other non-commercial purposes.
 
 You may NOT:
 - Use this software for commercial purposes.
-- Sell, rent, sublicense this software or derivatives for commercial gain.
-- Use as part of commercial product, service, SaaS, course berbayar, bundle
-  berbayar without prior written permission.
+- Sell, rent, or sublicense this software or derivatives for commercial gain.
+- Use it as part of a commercial product, service, SaaS, paid course, or paid
+  bundle without prior written permission.
 
 Commercial use requires permission:
 Contact: https://github.com/Atarvano/vanompp
 
 Attribution:
-Keep copyright notice + this license file in all copies.
+Retain the copyright notice and this license file in all copies.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -31,8 +31,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE.
 
 Bundled third-party binaries (Apache, PHP, MySQL, phpMyAdmin) retain their
 own licenses — Apache 2.0, PHP License, GPL-2.0, GPL-2.0 respectively.
-This license applies to vanompp code, UI, branding, scripts, docs.
+This license applies only to vanompp code, UI, branding, scripts, and docs.
 See THIRD_PARTY_NOTICES if available.
 
-For educational institutions (SMK, guru): free forever, share via flashdisk allowed.
-For commercial training / bootcamp / bimbel berbayar: need permission.
+For educational institutions (vocational schools / SMK, teachers): free forever,
+sharing via USB drive is allowed.
+For commercial training / bootcamps / paid tutoring: permission is required.
