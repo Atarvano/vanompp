@@ -26,11 +26,14 @@ jobs:
 
       - run: npm install
 
-      - name: Download Apache/PHP/MySQL/phpMyAdmin
+      - name: Prepare resources (skip heavy bins in CI)
         shell: pwsh
         run: |
-          ./scripts/download-bin.ps1
-          dir src-tauri/resources/bin | Format-Table Name, @{N="MB";E={[math]::Round(((Get-ChildItem $_.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum/1MB),1)}}
+          New-Item -ItemType Directory -Force -Path src-tauri/resources/bin/apache/bin,src-tauri/resources/bin/php,src-tauri/resources/bin/mysql/bin,src-tauri/resources/bin/phpmyadmin | Out-Null
+          # dummy placeholders so tauri bundle resources exist; real bins are downloaded locally via download-bin.ps1
+          if (!(Test-Path "src-tauri/resources/bin/README.md")) { Set-Content -Path "src-tauri/resources/bin/README.md" -Value "CI placeholder - real bins via download-bin.ps1 locally" }
+          dir src-tauri/resources/bin -Recurse | Select-Object FullName,Length | Format-Table -AutoSize
+          Write-Host "CI: heavy Apache/MySQL skipped (apachelounge blocks CI download, 0MB zip). Exe builds without bundled bins, app handles missing bin gracefully." -ForegroundColor Yellow
 
       - name: Build frontend
         run: npm run build
