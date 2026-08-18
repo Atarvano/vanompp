@@ -37,6 +37,7 @@ pub fn run() {
             commands::services::reset_persisted_port_cmd,
             commands::db::create_database,
             commands::db::create_db,
+            commands::db::exec_sql,
             commands::logs::read_log
         ])
         .on_window_event(|window, event| {

@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import { get } from 'svelte/store'
   import Sidebar from './lib/components/Sidebar.svelte'
-  import ServiceCard from './lib/components/ServiceCard.svelte'
+  import ServicesPage from './lib/components/ServicesPage.svelte'
   import ProjectCard from './lib/components/ProjectCard.svelte'
   import CreateCard from './lib/components/CreateCard.svelte'
   import EmptyState from './lib/components/EmptyState.svelte'
@@ -116,7 +116,7 @@
   <main class="flex-1 min-w-0">
     <div class="mx-auto max-w-[720px] px-4 py-6 md:py-8 space-y-5 pb-20 md:pb-8">
       {#if $activePage === 'services'}
-        <ServiceCard on:conflict={handleServiceConflict} on:error={handleServiceError} on:toast={handleServiceToast} on:openLogs={handleOpenLogViewer} />
+        <ServicesPage on:conflict={handleServiceConflict} on:error={handleServiceError} on:toast={handleServiceToast} on:openLogs={handleOpenLogViewer} />
       {:else if $activePage === 'projects'}
         <div>
           <h2 class="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Projects — www/</h2>
