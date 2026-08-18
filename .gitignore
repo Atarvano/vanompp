@@ -28,6 +28,7 @@ docs/agents/
 docs/adr/
 .scratch/
 .rtk/
+.agents/
 .claude/
 docs/docs-dev/
 docs/FIXTURE.md
@@ -40,8 +41,7 @@ skills-lock.json
 graphify-out/
 static-build/
 
-# Local persona / guru — keep on disk, not in repo
-GURU_SMK.txt
+
 
 # Heavy binaries & screenshots — but keep Vano mascot + tauri icons
 *.zip
@@ -79,4 +79,3 @@ CLAUDE.md
 spec.md
 RELEASE_v*.md
 RELEASE_NOTES_v*.md
-
