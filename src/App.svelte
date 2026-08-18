@@ -3,17 +3,14 @@
   import { get } from 'svelte/store'
   import Sidebar from './lib/components/Sidebar.svelte'
   import ServicesPage from './lib/components/ServicesPage.svelte'
-  import ProjectCard from './lib/components/ProjectCard.svelte'
-  import CreateCard from './lib/components/CreateCard.svelte'
-  import EmptyState from './lib/components/EmptyState.svelte'
+  import ProjectPage from './lib/components/ProjectPage.svelte'
   import PengembangPage from './lib/components/PengembangPage.svelte'
   import Toast from './lib/components/Toast.svelte'
   import PortConflictModal from './lib/components/PortConflictModal.svelte'
   import LogViewer from './lib/components/LogViewer.svelte'
-  import { projects, refreshProjects } from './lib/stores/projects'
+  import { refreshProjects } from './lib/stores/projects'
   import { services, refreshStatus, startService, type ConflictInfo, loadPersistedFromRust, setPersistedPort, DEFAULT_APACHE_PORT } from './lib/stores/services'
   import { activePage } from './lib/stores/nav'
-  import { tc } from './lib/utils/messages'
 
   type ToastItem = { id: number; msg: string; kind?: 'info' | 'error' }
   let toasts: ToastItem[] = []
@@ -25,8 +22,6 @@
   let logService: 'apache' | 'mysql' | 'php' | null = null
   let pollTimer: ReturnType<typeof setInterval> | null = null
   const POLL_MS = 3000
-  $: projectList = $projects
-  $: isEmpty = projectList.length === 0
   $: apachePort = $services.apachePort
   onMount(async () => {
     try { await loadPersistedFromRust() } catch {}
@@ -44,24 +39,9 @@
     const id = nextToastId++
     toasts = [...toasts, { id, msg, kind } as any]
   }
-  function handleCreated(e: CustomEvent) {
-    const { name, db, warn } = e.detail as { name: string; db?: string; warn?: string }
-    const port = apachePort ?? 8080
-    if (warn) addToast(warn, 'error')
-    else addToast(tc('created', name, port, db))
-    refreshProjects(port)
-  }
   function handleProjectToast(e: CustomEvent) {
     const { msg, kind } = e.detail as { msg: string; kind?: 'info' | 'error' }
     addToast(msg, kind ?? 'info')
-  }
-  function handleEmptyCta() {
-    activePage.set('projects')
-    setTimeout(() => {
-      const el = document.getElementById('create-input')
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      setTimeout(() => (el as HTMLInputElement)?.focus(), 250)
-    }, 50)
   }
   function handleServiceConflict(e: CustomEvent) {
     const { conflicts, error } = e.detail as { conflicts: ConflictInfo[]; error?: string }
@@ -118,17 +98,7 @@
       {#if $activePage === 'services'}
         <ServicesPage on:conflict={handleServiceConflict} on:error={handleServiceError} on:toast={handleServiceToast} on:openLogs={handleOpenLogViewer} />
       {:else if $activePage === 'projects'}
-        <div>
-          <h2 class="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Projects — www/</h2>
-          {#if isEmpty}
-            <EmptyState on:cta={handleEmptyCta} />
-          {:else}
-            <ProjectCard on:toast={handleProjectToast} />
-          {/if}
-          <div class="mt-4">
-            <CreateCard on:created={handleCreated} />
-          </div>
-        </div>
+        <ProjectPage on:toast={handleProjectToast} />
       {:else}
         <PengembangPage />
       {/if}
