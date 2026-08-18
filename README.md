@@ -8,6 +8,8 @@
 
 # Vanompp v1.2.0
 
+> 🇬🇧 English version: [README_en.md](README_en.md)
+
 Portable dev env buat belajar web. Ga ribet setting path localhost, tinggal klik.
 
 ## Quickstart
