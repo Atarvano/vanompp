@@ -12,11 +12,18 @@ $Base = $Base.Path
 $RootZips = Resolve-Path "$PSScriptRoot/.." | Select-Object -ExpandProperty Path
 
 # URLs - latest versions matching local cached files
+# Fallbacks for MySQL (Oracle 403 in CI): cdn.mysql.com + GitHub mirror
 $Urls = @{
   apache     = "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.66-251206-Win64-VS17.zip"
   php        = "https://windows.php.net/downloads/releases/php-8.3.33-Win32-vs16-x64.zip"
   mysql      = "https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.40-winx64.zip"
   phpmyadmin = "https://files.phpmyadmin.net/phpMyAdmin/5.2.1/phpMyAdmin-5.2.1-all-languages.zip"
+}
+$FallbackUrls = @{
+  mysql = @(
+    "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.40-winx64.zip"
+    "https://downloads.mysql.com/archives/get/p/23/file/mysql-8.0.40-winx64.zip"
+  )
 }
 
 # Local cached zip paths (fast path if user already downloaded)
@@ -74,7 +81,24 @@ function Ensure-SourceZip {
       "Referer" = "https://www.apachelounge.com/download/"
       "Accept" = "*/*"
     }
-    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 600 -AllowInsecureRedirect -MaximumRedirection 5 -Headers $headers
+    $candidates = @($url)
+    if ($FallbackUrls.ContainsKey($Key)) { $candidates += $FallbackUrls[$Key] }
+    $lastErr = $null
+    foreach ($tryUrl in $candidates) {
+      if ($tryUrl -ne $url) { Write-Host "[retry fallback] $Key from $tryUrl ..." -ForegroundColor Yellow }
+      try {
+        Invoke-WebRequest -Uri $tryUrl -OutFile $dest -UseBasicParsing -TimeoutSec 600 -AllowInsecureRedirect -MaximumRedirection 5 -Headers $headers
+        $lastErr = $null
+        break
+      } catch {
+        $lastErr = $_
+        Write-Host "[warn fallback] $Key $tryUrl failed: $($_.Exception.Message)" -ForegroundColor DarkYellow
+        if ($tryUrl -eq $candidates[-1]) { throw $lastErr }
+        Start-Sleep -Seconds 2
+        continue
+      }
+    }
+    if ($lastErr) { throw $lastErr }
     $size = (Get-Item $dest).Length / 1MB
     if ((Get-Item $dest).Length -lt 1MB) {
       $sample = Get-Content -Path $dest -TotalCount 3 -ErrorAction SilentlyContinue | Out-String
