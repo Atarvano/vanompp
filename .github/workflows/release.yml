@@ -1,0 +1,51 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-all-crates: true
+
+      - run: npm ci
+
+      - name: Download Apache/PHP/MySQL/phpMyAdmin
+        shell: pwsh
+        run: |
+          ./scripts/download-bin.ps1
+          dir src-tauri/resources/bin | Format-Table Name, @{N="MB";E={[math]::Round(((Get-ChildItem $_.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum/1MB),1)}}
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Tauri build (nsis exe only)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Vanompp ${{ github.ref_name }}"
+          releaseBody: "See CHANGELOG.md for details. Installer defaults to C:/Vanompp (browse can change)."
+          releaseDraft: false
+          prerelease: false
+          includeRelease: true
+          args: --bundles nsis
+
