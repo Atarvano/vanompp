@@ -72,38 +72,6 @@ pub fn kill_all(state: &ServiceState) {
     }
 }
 
-fn try_paths(root: &PathBuf, rels: &[&str]) -> Option<PathBuf> {
-    for rel in rels {
-        let p = root.join(rel);
-        if p.exists() {
-            return Some(p);
-        }
-        // also try resources/ prefix (Tauri MSI/NSIS layout)
-        let rp = root.join("resources").join(rel);
-        if rp.exists() {
-            return Some(rp);
-        }
-        // also try parent variants (+ resources prefix)
-        for i in 0..4 {
-            let mut cur = root.clone();
-            for _ in 0..i {
-                if let Some(par) = cur.parent() {
-                    cur = par.to_path_buf();
-                }
-            }
-            let pp = cur.join(rel);
-            if pp.exists() {
-                return Some(pp);
-            }
-            let rpp = cur.join("resources").join(rel);
-            if rpp.exists() {
-                return Some(rpp);
-            }
-        }
-    }
-    None
-}
-
 fn resolve_bin(root: &PathBuf, rel: &str) -> Option<PathBuf> {
     // first exact (dev/portable: root/bin/...)
     let primary = root.join("bin").join(rel);
@@ -158,8 +126,7 @@ fn resolve_bin(root: &PathBuf, rel: &str) -> Option<PathBuf> {
             }
         }
     }
-    try_paths(root, &[&format!("bin/{}", rel), rel])
-        .or_else(|| try_paths(root, &[rel]))
+    None
 }
 
 pub fn resolve_apache_bin(root: &PathBuf) -> Result<PathBuf, String> {
@@ -233,17 +200,12 @@ mod tests_resolve_bin {
         // but root/resources/bin/apache/bin/httpd.exe DOES exist
         assert!(httpd.exists());
 
-        // try_paths-based fallback inside resolve_bin should find it now via
-        // root/resources/bin + exe-parent resources fallback
+        // root/resources/bin layout is found via the resources/bin early-return in resolve_bin
         // Call via the public wrappers
         let got_a = resolve_apache_bin(&root);
         assert!(got_a.is_ok(), "httpd should be found in installed resources layout, got err: {:?}", got_a.err());
         let got_m = resolve_mysql_bin(&root);
         assert!(got_m.is_ok(), "mysqld should be found in installed resources layout, got err: {:?}", got_m.err());
-
-        // Also verify try_paths direct: bin/apache/bin/httpd.exe with resources prefix
-        let via_try = try_paths(&root, &["bin/apache/bin/httpd.exe"]);
-        assert!(via_try.is_some(), "try_paths should find via resources/bin prefix");
 
         let _ = fs::remove_dir_all(&base);
     }
