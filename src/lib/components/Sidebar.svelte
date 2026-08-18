@@ -3,11 +3,12 @@
   import { locale, setLocale } from '$lib/stores/locale'
   import { t } from '$lib/utils/messages'
 
-  const items: { id: Page; icon: string }[] = [
-    { id: 'services', icon: '◉' },
-    { id: 'projects', icon: '▭' },
-    { id: 'pengembang', icon: '◐' },
-  ]
+  const icons: Record<Page, string> = {
+    services: `<svg viewBox="0 0 24 24" class="h-[14px] w-[14px]" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 9h10M7 12h6M7 15h8"/></svg>`,
+    projects: `<svg viewBox="0 0 24 24" class="h-[14px] w-[14px]" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 11h18"/></svg>`,
+    pengembang: `<svg viewBox="0 0 24 24" class="h-[14px] w-[14px]" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/><path d="M16 8l1.5-1.5M18.5 6a1 1 0 1 1 1.4 1.4L18 9.5"/></svg>`,
+  }
+  const items: { id: Page }[] = [{ id: 'services' }, { id: 'projects' }, { id: 'pengembang' }]
 
   $: collapsed = $sidebarCollapsed
   $: current = $activePage
@@ -36,10 +37,7 @@
   <div class="flex h-[52px] items-center gap-2.5 border-b border-zinc-100 px-3">
     <img src="/mascot.png" alt="Vano" class="h-7 w-7 shrink-0 rounded-[8px] object-cover ring-1 ring-zinc-200 bg-white" />
     {#if !collapsed}
-      <div class="min-w-0 leading-tight">
-        <div class="text-[13px] font-bold tracking-tight text-zinc-900">vanompp</div>
-        <div class="truncate text-[10px] text-zinc-500">{tt('appSubtitle')}</div>
-      </div>
+      <div class="text-[13px] font-bold tracking-tight text-zinc-900">vanompp</div>
     {/if}
   </div>
 
@@ -55,9 +53,7 @@
         aria-current={active ? 'page' : undefined}
         title={tt('nav' + it.id.charAt(0).toUpperCase() + it.id.slice(1))}
       >
-        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] text-[11px] font-mono {active ? 'bg-white/15' : 'bg-zinc-100'}"
-          >{it.icon}</span
-        >
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] {active ? 'bg-white/15 text-white' : 'bg-zinc-100 text-zinc-600'}">{@html icons[it.id]}</span>
         {#if !collapsed}
           <span class="truncate font-medium">{tt('nav' + it.id.charAt(0).toUpperCase() + it.id.slice(1))}</span>
         {/if}
@@ -111,7 +107,7 @@
       on:click={() => nav(it.id)}
       aria-current={active ? 'page' : undefined}
     >
-      <span class="text-[14px] leading-none">{it.icon}</span>
+      <span class="leading-none {active ? 'text-zinc-900' : 'text-zinc-400'}">{@html icons[it.id]}</span>
       <span class="font-mono text-[10px] tracking-wide">{tt('nav' + it.id.charAt(0).toUpperCase() + it.id.slice(1))}</span>
     </button>
   {/each}

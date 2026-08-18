@@ -5,7 +5,8 @@
   import { projects, selected, refreshProjects, createDatabase } from '$lib/stores/projects'
   import { services } from '$lib/stores/services'
   import { createEventDispatcher } from 'svelte'
-  import { MSG } from '$lib/utils/messages'
+  import { MSG, t } from '$lib/utils/messages'
+  $: tt = $t
   const dispatch = createEventDispatcher()
   export let port = 8080
   let copied = false
@@ -117,12 +118,12 @@
 
 <BezelCard highlight={!!sel}>
   <div class="space-y-4">
-    <div class="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">Select Project</div>
+    <div class="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">{tt('selectProject')}</div>
     <select
       class="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-300 focus:ring-2 focus:ring-[#E9FF70]/50"
       bind:value={$selected}
     >
-      <option value="">— pilih project —</option>
+      <option value="">{tt('chooseProject')}</option>
       {#each projectList as p}
         <option value={p.name}>{p.name}</option>
       {/each}
@@ -132,7 +133,7 @@
         type="button"
         class="w-full rounded-[16px] border border-amber-100 bg-[#FEFCE8] p-6 md:p-8 text-center cursor-pointer hover:bg-[#fef9c3]/60 transition-colors"
         on:click={copyUrl}
-        title="Klik untuk copy URL"
+        title={tt('clickToCopy')}
       >
         <span class="font-mono text-[18px] md:text-[20px] font-bold tracking-tight text-zinc-900 break-all block">
           {currentUrl}
@@ -144,20 +145,20 @@
           on:click={openFolder}
           disabled={folderLoading}
         >
-          📂 {folderLoading ? 'Buka...' : 'Buka Folder'}
+          📂 {folderLoading ? tt('openFolderLoading') : tt('openFolder')}
         </button>
         <div class="flex items-center gap-2">
           <button
             class="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-50"
             on:click={openBrowser}
           >
-            Buka ↗
+            {tt('openLabel')} ↗
           </button>
           <button
             class="inline-flex items-center gap-1 rounded-full bg-black px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-zinc-800 active:scale-[0.98] transition-all disabled:opacity-50"
             on:click={copyUrl}
           >
-            {copied ? 'Copied!' : 'Copy URL'}
+            {copied ? tt('copied') : tt('copyUrl')}
           </button>
         </div>
       </div>
@@ -191,7 +192,7 @@
                 title={sanitizedDb ? `Buat DB ${sanitizedDb}` : 'Isi nama DB dulu'}
               >
                 {#if dbLoading}
-                  <span class="h-3 w-3 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent"></span> Bikin {sanitizedDb}...
+                  <span class="h-3 w-3 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent"></span> {tt('creatingDb')} {sanitizedDb}...
                 {:else}
                   + Create DB
                 {/if}
@@ -200,7 +201,7 @@
                 <span class="text-[10px] font-mono text-zinc-400">→ {sanitizedDb}</span>
               {/if}
               {#if customDbName && !dbValid}
-                <span class="text-[10px] text-red-600">harus huruf/_ diawal max 64</span>
+                <span class="text-[10px] text-red-600">{tt('dbInvalid')}</span>
               {/if}
             </div>
           {/if}

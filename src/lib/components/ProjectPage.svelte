@@ -5,8 +5,9 @@
   import EmptyState from './EmptyState.svelte'
   import { projects, refreshProjects } from '$lib/stores/projects'
   import { services } from '$lib/stores/services'
-  import { tc } from '$lib/utils/messages'
+  import { tc, t } from '$lib/utils/messages'
   import { activePage } from '$lib/stores/nav'
+  $: tt = $t
 
   const dispatch = createEventDispatcher<{ toast: { msg: string; kind?: 'info' | 'error' } }>()
 
@@ -35,7 +36,7 @@
 </script>
 
 <div>
-  <h2 class="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Projects — www/</h2>
+  <h2 class="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{tt('projectsTitle')}</h2>
   {#if isEmpty}
     <EmptyState on:cta={handleEmptyCta} />
   {:else}

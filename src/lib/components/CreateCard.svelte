@@ -4,7 +4,8 @@
   import BezelCard from './BezelCard.svelte'
   import { previewSlug, validateSlug } from '$lib/utils/slug'
   import { refreshProjects, selected as selectedStore, projects as projectsStore } from '$lib/stores/projects'
-  import { MSG } from '$lib/utils/messages'
+  import { MSG, t } from '$lib/utils/messages'
+  $: tt = $t
 
   const dispatch = createEventDispatcher()
 
@@ -88,7 +89,7 @@
 
 <BezelCard>
   <div class="space-y-4">
-    <div class="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">Nama Project Baru</div>
+    <div class="text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">{tt('newProjectTitle')}</div>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
       <div class="flex flex-1 items-center overflow-hidden rounded-lg border border-zinc-200 bg-white">
@@ -107,7 +108,7 @@
 
       <label class="inline-flex items-center gap-1.5 text-[12px] text-zinc-700">
         <input type="checkbox" bind:checked={dbChecked} class="h-4 w-4 rounded border-zinc-300 text-black focus:ring-[#E9FF70] accent-black" />
-        Buat Database?
+        {tt('createDbQ')}
       </label>
     </div>
 
@@ -121,7 +122,7 @@
         />
         <span class="text-[10px] font-mono text-zinc-400">→ {dbFinalSanitized || '...'}</span>
         {#if dbName && dbFinalSanitized && dbFinalSanitized.length > 0 && dbFinalSanitized.length <= 64}
-          <span class="text-[10px] text-emerald-700 font-mono">custom ok</span>
+          <span class="text-[10px] text-emerald-700 font-mono">{tt('customOk')}</span>
         {/if}
       </div>
     {/if}
@@ -139,7 +140,7 @@
         disabled={!canCreate}
         on:click={handleCreate}
       >
-        {loading ? '...' : 'Create Project'}
+        {loading ? '...' : tt('createProject')}
         <span class="flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[10px]">+</span>
       </button>
     </div>
