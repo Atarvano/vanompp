@@ -16,13 +16,13 @@ $RootZips = Resolve-Path "$PSScriptRoot/.." | Select-Object -ExpandProperty Path
 $Urls = @{
   apache     = "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.66-251206-Win64-VS17.zip"
   php        = "https://windows.php.net/downloads/releases/php-8.3.33-Win32-vs16-x64.zip"
-  mysql      = "https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.40-winx64.zip"
+  mysql      = "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.46-winx64.zip"
   phpmyadmin = "https://files.phpmyadmin.net/phpMyAdmin/5.2.1/phpMyAdmin-5.2.1-all-languages.zip"
 }
 $FallbackUrls = @{
   mysql = @(
-    "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.40-winx64.zip"
-    "https://downloads.mysql.com/archives/get/p/23/file/mysql-8.0.40-winx64.zip"
+    "https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.46-winx64.zip"
+    "https://downloads.mysql.com/archives/get/p/23/file/mysql-8.0.46-winx64.zip"
   )
 }
 
@@ -30,14 +30,14 @@ $FallbackUrls = @{
 $LocalZips = @{
   apache     = Join-Path $RootZips "httpd-2.4.66-251206-Win64-VS17.zip"
   php        = Join-Path $RootZips "php-8.3.33-Win32-vs16-x64.zip"
-  mysql      = Join-Path $RootZips "mysql-8.0.40-winx64.zip"
+  mysql      = Join-Path $RootZips "mysql-8.0.46-winx64.zip"
   phpmyadmin = Join-Path $RootZips "phpMyAdmin-5.2.1-all-languages.zip"
 }
 
 $Versions = @{
   apache     = "2.4.66 VS17 Win64 (ApacheLounge 251206)"
   php        = "8.3.33 TS Win32-vs16-x64"
-  mysql      = "8.0.40 Win64"
+  mysql      = "8.0.46 Win64"
   phpmyadmin = "5.2.1-all-languages"
 }
 
@@ -45,7 +45,7 @@ $Versions = @{
 $InnerFolders = @{
   apache     = "Apache24"
   php        = $null  # flat
-  mysql      = "mysql-8.0.40-winx64"
+  mysql      = "mysql-8.0.46-winx64"
   phpmyadmin = "phpMyAdmin-5.2.1-all-languages"
 }
 
