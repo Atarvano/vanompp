@@ -153,6 +153,46 @@ pub fn create_database_fs(app_root: &Path, db_name: &str, mysql_port: u16) -> Re
     exec_mysql_query(app_root, &sql, mysql_port)
 }
 
+/// Execute arbitrary SQL via mysql client, capture stdout.
+/// Used by Terminal tab. Returns stdout text or Indonesian error.
+pub fn exec_sql_raw(app_root: &Path, sql: &str, port: u16, db: Option<&str>) -> Result<String, String> {
+    let t = sql.trim();
+    if t.is_empty() {
+        return Err("SQL kosong".to_string());
+    }
+    if t.len() > 8192 {
+        return Err("SQL kepanjangan (max 8k)".to_string());
+    }
+    let client_bin = resolve_mysql_client_bin(app_root).ok_or_else(|| "mysql.exe tidak ketemu \u{1F605}".to_string())?;
+    if !is_port_occupied_tcp(port) && std::net::TcpStream::connect(format!("localhost:{port}")).is_err() {
+        return Err("MySQL belum ON \u{2013} Start MySQL dulu \u{1F64F}".to_string());
+    }
+    let db_arg = db.and_then(|d| { let s=d.trim(); if s.is_empty() { None } else { Some(s.to_string()) } });
+    let mut last_err = String::new();
+    for host in ["localhost", "127.0.0.1"] {
+        let mut cmd = Command::new(&client_bin);
+        cmd.arg("-u").arg("root").arg(format!("--host={}", host)).arg(format!("--port={}", port));
+        if let Some(ref d) = db_arg { cmd.arg(d); }
+        cmd.arg("-e").arg(t);
+        let out = cmd.output().map_err(|e| format!("Gagal jalankan mysql client: {}", e))?;
+        if out.status.success() {
+            let mut s = String::from_utf8_lossy(&out.stdout).to_string();
+            if s.trim().is_empty() { s = "OK".to_string(); }
+            return Ok(s);
+        }
+        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+        let low = format!("{} {}", stdout, stderr).to_lowercase();
+        if low.contains("1130") || low.contains("not allowed to connect") { last_err = stderr; continue; }
+        if low.contains("can't connect") || low.contains("10061") || low.contains("2003") {
+            return Err("MySQL belum ON \u{2013} Start MySQL dulu \u{1F64F}".to_string());
+        }
+        let msg = stderr.trim();
+        return Err(if msg.is_empty() { format!("MySQL error: {}", stdout.trim()) } else { msg.to_string() });
+    }
+    Err(if last_err.is_empty() { "Gagal eksekusi SQL".to_string() } else { last_err.trim().to_string() })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

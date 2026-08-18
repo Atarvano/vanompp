@@ -1,4 +1,4 @@
-use crate::services::db::create_database_fs;
+use crate::services::db::{create_database_fs, exec_sql_raw};
 use crate::utils::paths::get_app_root;
 
 /// Create DATABASE IF NOT EXISTS via mysql.exe client.
@@ -14,6 +14,13 @@ pub fn create_database(db_name: String, mysql_port: Option<u16>) -> Result<(), S
 #[tauri::command]
 pub fn create_db(db_name: String, mysql_port: Option<u16>) -> Result<(), String> {
     create_database(db_name, mysql_port)
+}
+
+#[tauri::command]
+pub fn exec_sql(sql: String, mysql_port: Option<u16>, db: Option<String>) -> Result<String, String> {
+    let root = get_app_root();
+    let port = mysql_port.unwrap_or(3306);
+    exec_sql_raw(&root, &sql, port, db.as_deref())
 }
 
 #[cfg(test)]
