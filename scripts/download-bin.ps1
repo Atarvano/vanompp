@@ -68,7 +68,7 @@ function Ensure-SourceZip {
   try {
     # Use BITS or Invoke-WebRequest with progress disabled for speed
     $ProgressPreference = 'SilentlyContinue'
-    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 300
+    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 300 -AllowInsecureRedirect -MaximumRedirection 5
     $size = (Get-Item $dest).Length / 1MB
     Write-Host "[ok] $Key downloaded $([math]::Round($size,1)) MB -> $dest" -ForegroundColor Green
     return $dest
