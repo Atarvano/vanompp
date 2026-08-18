@@ -26,14 +26,15 @@ jobs:
 
       - run: npm install
 
-      - name: Prepare resources (skip heavy bins in CI)
+      - name: Download Apache/PHP/MySQL/phpMyAdmin (FULL bundle)
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path src-tauri/resources/bin/apache/bin,src-tauri/resources/bin/php,src-tauri/resources/bin/mysql/bin,src-tauri/resources/bin/phpmyadmin | Out-Null
-          # dummy placeholders so tauri bundle resources exist; real bins are downloaded locally via download-bin.ps1
-          if (!(Test-Path "src-tauri/resources/bin/README.md")) { Set-Content -Path "src-tauri/resources/bin/README.md" -Value "CI placeholder - real bins via download-bin.ps1 locally" }
-          dir src-tauri/resources/bin -Recurse | Select-Object FullName,Length | Format-Table -AutoSize
-          Write-Host "CI: heavy Apache/MySQL skipped (apachelounge blocks CI download, 0MB zip). Exe builds without bundled bins, app handles missing bin gracefully." -ForegroundColor Yellow
+          ./scripts/download-bin.ps1
+          dir src-tauri/resources/bin | Format-Table Name, @{N="MB";E={[math]::Round(((Get-ChildItem $_.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum/1MB),1)}}
+          # fail if critical dll missing (bundle WAJIB ada)
+          if (!(Test-Path "src-tauri/resources/bin/php/php8apache2_4.dll")) { Write-Host "FAIL: php8apache2_4.dll missing - bundle incomplete" -ForegroundColor Red; exit 1 }
+          if (!(Test-Path "src-tauri/resources/bin/apache/bin/httpd.exe")) { Write-Host "FAIL: httpd.exe missing" -ForegroundColor Red; exit 1 }
+          if (!(Test-Path "src-tauri/resources/bin/mysql/bin/mysqld.exe")) { Write-Host "FAIL: mysqld.exe missing" -ForegroundColor Red; exit 1 }
 
       - name: Build frontend
         run: npm run build

@@ -68,8 +68,20 @@ function Ensure-SourceZip {
   try {
     # Use BITS or Invoke-WebRequest with progress disabled for speed
     $ProgressPreference = 'SilentlyContinue'
-    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 300 -AllowInsecureRedirect -MaximumRedirection 5
+    # ApacheLounge blocks default UA, must set browser UA + headers
+    $headers = @{
+      "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      "Referer" = "https://www.apachelounge.com/download/"
+      "Accept" = "*/*"
+    }
+    Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 600 -AllowInsecureRedirect -MaximumRedirection 5 -Headers $headers
     $size = (Get-Item $dest).Length / 1MB
+    if ((Get-Item $dest).Length -lt 1MB) {
+      $sample = Get-Content -Path $dest -TotalCount 3 -ErrorAction SilentlyContinue | Out-String
+      Write-Host "[FAIL] $Key zip too small ($([math]::Round($size,3)) MB), likely HTML error page. Sample: $sample" -ForegroundColor Red
+      Remove-Item $dest -Force -ErrorAction SilentlyContinue
+      throw "Download returned HTML, not zip — blocked or 404"
+    }
     Write-Host "[ok] $Key downloaded $([math]::Round($size,1)) MB -> $dest" -ForegroundColor Green
     return $dest
   } catch {
