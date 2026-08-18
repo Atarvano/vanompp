@@ -6,6 +6,7 @@
   import ProjectCard from './lib/components/ProjectCard.svelte'
   import CreateCard from './lib/components/CreateCard.svelte'
   import EmptyState from './lib/components/EmptyState.svelte'
+  import PengembangPage from './lib/components/PengembangPage.svelte'
   import Toast from './lib/components/Toast.svelte'
   import PortConflictModal from './lib/components/PortConflictModal.svelte'
   import LogViewer from './lib/components/LogViewer.svelte'
@@ -129,12 +130,7 @@
           </div>
         </div>
       {:else}
-        <!-- Placeholder pengembang; ticket #6 will replace -->
-        <div class="rounded-[24px] border border-zinc-200 bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <h2 class="text-sm font-semibold text-zinc-900">Pengembang</h2>
-          <p class="mt-2 text-[13px] leading-relaxed text-zinc-500">Halaman Pengembang akan hadir di ticket #6. Untuk sekarang ini placeholder agar router berfungsi.</p>
-          <p class="mt-3 font-mono text-[11px] text-zinc-400">vanompp v1.3.0</p>
-        </div>
+        <PengembangPage />
       {/if}
     </div>
   </main>

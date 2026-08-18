@@ -46,6 +46,15 @@ const id = {
   collapse: "Ciutkan",
   expand: "Bentangkan",
   langLabel: "Bahasa",
+  pengembangAboutDesc: "Vanompp bantu siswa SMK jalanin Apache + PHP + MySQL tanpa ribet XAMPP. Satu klik, langsung belajar web.",
+  pengembangForWho: "Dibuat untuk pemula yang baru kenal localhost — tinggal klik, tanpa setting path manual.",
+  pengembangCreator: "Atarvano",
+  pengembangRepo: "GitHub: Atarvano/vanompp",
+  pengembangOpenRepo: "Buka di GitHub ↗",
+  pengembangSystemTitle: "Info Sistem",
+  pengembangVersion: "Versi",
+  pengembangApache: "Apache",
+  pengembangMysql: "MySQL",
 }
 
 const en = {
@@ -89,6 +98,15 @@ const en = {
   collapse: "Collapse",
   expand: "Expand",
   langLabel: "Language",
+  pengembangAboutDesc: "Vanompp helps vocational students run Apache + PHP + MySQL without XAMPP hassle. One click, start learning the web.",
+  pengembangForWho: "Built for beginners meeting localhost for the first time — no manual path setup.",
+  pengembangCreator: "Atarvano",
+  pengembangRepo: "GitHub: Atarvano/vanompp",
+  pengembangOpenRepo: "Open on GitHub ↗",
+  pengembangSystemTitle: "System Info",
+  pengembangVersion: "Version",
+  pengembangApache: "Apache",
+  pengembangMysql: "MySQL",
 }
 
 export const translations: Record<Locale, Dict> = { id: id as Dict, en: en as Dict }
