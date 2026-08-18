@@ -1,6 +1,6 @@
 [package]
 name = "vanompp"
-version = "0.1.0"
+version = "1.3.0"
 description = "Vanompp - anti-bingung path localhost untuk SMK kelas 10-11"
 authors = ["Vanompp"]
 edition = "2021"

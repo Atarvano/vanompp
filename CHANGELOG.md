@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.3.0 — Sidebar + Services/Terminal + i18n (2026-08-18)
+
+- Sidebar shell (200px ↔ 48px collapse) + Services / Projects / Pengembang router
+- Services page tabbed: Apache | MySQL | Terminal; Terminal is MySQL client (SHOW DATABASES, history, DB selector)
+- Rust `exec_sql` command for Terminal
+- i18n foundation EN/ID + locale store
+- Project page extracted; Pengembang page (About + System Info)
+- Version 1.3.0 everywhere (package.json, tauri.conf.json, Cargo.toml)
+
 ## v1.2.0 — Stitch Full Light + Vano mascot (2026-05-13)
 
 Portable dev env ramah pemula — gampang buat belajar web.
